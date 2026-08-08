@@ -6,7 +6,7 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D e Épura com VG Rigorosa (Idêntica à Prancha)")
+st.markdown("### Geometria Descritiva 3D e Épura com VG Rigorosa")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
@@ -15,14 +15,16 @@ st.markdown("---")
 # --- FUNÇÃO AUXILIAR: ORIENTAÇÃO TEÓRICA EXATA DA BASE ---
 def obter_geometria_base(forma, ox, oy, oz, raio, lados):
     if forma in ["Cilindro", "Cone"]:
-        angulos = np.linspace(0, 2 * np.pi, 100)
+        angulos = np.linspace(0, 2 * np.pi, 60)
     else:
+        # Orientação geométrica clássica para polígonos
         if lados == 3: giro = -np.pi / 2  
         elif lados == 4: giro = np.pi / 4   
-        elif lados == 5: giro = -np.pi / 2  # Pentágono apontando para cima
-        elif lados == 6: giro = 0           # Hexágono com lados paralelos à LT
+        elif lados == 5: giro = -np.pi / 2  # Pentágono (Vértice para cima)
+        elif lados == 6: giro = 0           # Hexágono (Lados horizontais)
         elif lados == 8: giro = np.pi / 8   
         else: giro = -np.pi / 2 if lados % 2 != 0 else 0
+            
         angulos = np.linspace(0, 2 * np.pi, lados + 1)[:-1] + giro
         
     bx = ox + raio * np.cos(angulos)
@@ -38,8 +40,10 @@ def desenhar_arco_rebatimento(ax, cx, cy, start_x, start_y, end_x):
     """Desenha o traço curvo do compasso simulando o rebatimento no papel"""
     r = np.hypot(start_x - cx, start_y - cy)
     theta1 = np.arctan2(start_y - cy, start_x - cx)
-    # Se rebate para a direita, o arco vai até 0 graus. Para a esquerda, vai até 180 (pi).
+    
+    # Se rebate pra direita (end_x > cx), desce até 0 graus. Se pra esquerda, desce até 180 (pi).
     theta2 = 0.0 if end_x > cx else np.pi
+        
     t = np.linspace(theta1, theta2, 30)
     ax.plot(cx + r * np.cos(t), cy + r * np.sin(t), color='gray', linestyle='-.', linewidth=1.2)
 
@@ -56,12 +60,13 @@ def gerar_epura_integrada(pontos_principais=None, retas=None, tipo_solido=None, 
     ax.set_ylim([-15, 15])
     ax.grid(True, linestyle='--', alpha=0.5)
     
-    # Fundamental: Proporção real para a elipse e a base não ficarem "amassadas"
+    # Proporção geométrica real travada (evita deformações na VG e na Base)
     ax.set_aspect('equal', adjustable='box')
 
     # 1. PONTOS E RETAS BÁSICAS
     for nome, (x, y, z) in pontos_principais.items():
-        if nome.startswith('B') and len(nome) > 1: continue
+        if nome.startswith('B') and len(nome) > 1: 
+            continue
         ax.scatter(x, z, color='blue', s=40)
         ax.text(x, z + 0.3, f"{nome}'", fontsize=10, color='blue', fontweight='bold')
         ax.scatter(x, -y, color='green', s=40)
@@ -79,6 +84,7 @@ def gerar_epura_integrada(pontos_principais=None, retas=None, tipo_solido=None, 
         ox, oy, oz, raio, altura, forma = dados_circulo
         z_base, z_topo = oz, oz + altura
         x_esq, x_dir = ox - raio, ox + raio
+        
         if forma == "Cilindro":
             ax.plot([x_esq, x_esq], [z_base, z_topo], color='blue', linewidth=1.5)
             ax.plot([x_dir, x_dir], [z_base, z_topo], color='blue', linewidth=1.5)
@@ -87,119 +93,92 @@ def gerar_epura_integrada(pontos_principais=None, retas=None, tipo_solido=None, 
         else:
             ax.plot([x_esq, ox, x_dir], [z_base, z_topo, z_base], color='blue', linewidth=1.5)
             ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
+
         theta = np.linspace(0, 2 * np.pi, 100)
         ax.plot(ox + raio * np.cos(theta), -oy + raio * np.sin(theta), color='green', linewidth=1.5)
 
-    # 3. SÓLIDOS COM SEÇÃO E REBATIMENTO (A MÁGICA DA PRANCHA)
+    # 3. SÓLIDOS COM SEÇÃO E REBATIMENTO (VG RIGOROSA)
     if dados_solido and dados_secao:
         forma, ox, oy, oz, raio, altura, lados = dados_solido
         alpha_o, alpha_1 = dados_secao
         ang_rad = np.radians(alpha_1)
 
         px_base, py_base = obter_geometria_base(forma, ox, oy, oz, raio, lados)
-        
-        # Projeção Horizontal (Base verde)
         ax.plot(px_base, -py_base, color='green', linewidth=1.5, label="Base (Proj. Horizontal)")
         
-        # Cruz de Eixos na base do Cilindro/Cone (idêntico à sua foto)
-        if forma in ["Cilindro", "Cone"]:
-            ax.plot([ox-raio-0.5, ox+raio+0.5], [-oy, -oy], color='gray', linestyle='-.', linewidth=1)
-            ax.plot([ox, ox], [-oy-raio-0.5, -oy+raio+0.5], color='gray', linestyle='-.', linewidth=1)
-        
-        # Cálculo das interseções de corte
         sx_list, sy_list, sz_list = [], [], []
         for px, py in zip(px_base, py_base):
             if forma in ["Prisma", "Cilindro"]:
-                sz = np.tan(ang_rad) * (px - alpha_o)
+                t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura if altura != 0 else 0
                 sx, sy = px, py
+                sz = oz + t * altura
             else:
                 den = altura - np.tan(ang_rad)*(ox - px)
                 t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den if abs(den) > 1e-5 else 0
                 sx = px + t * (ox - px)
                 sy = py + t * (oy - py)
                 sz = oz + t * altura
-            sx_list.append(sx); sy_list.append(sy); sz_list.append(sz)
+                
+            sx_list.append(sx)
+            sy_list.append(sy)
+            sz_list.append(sz)
 
-        # Projeção Vertical (Retângulo exato do Cilindro)
+        # Arestas / Contornos verticais
         if forma in ["Prisma", "Pirâmide"]:
             for px, sz_corte in zip(px_base[:-1], sz_list[:-1]):
                 if forma == "Prisma":
                     ax.plot([px, px], [oz, oz + altura], color='blue', linewidth=1.0, alpha=0.5)
                 else:
                     ax.plot([px, ox], [oz, oz + altura], color='blue', linewidth=1.0, alpha=0.5)
-            # Bases horizontais do prisma
-            ax.plot([min(px_base), max(px_base)], [oz, oz], color='blue', linestyle='--', alpha=0.6)
-            if forma == "Prisma": ax.plot([min(px_base), max(px_base)], [oz + altura, oz + altura], color='blue', linestyle='--', alpha=0.6)
         else: 
             if forma == "Cilindro":
-                # Retângulo Perfeito
-                ax.plot([ox-raio, ox-raio], [oz, oz+altura], color='blue', linewidth=1.5)
-                ax.plot([ox+raio, ox+raio], [oz, oz+altura], color='blue', linewidth=1.5)
-                ax.plot([ox-raio, ox+raio], [oz, oz], color='blue', linewidth=1.5)
-                ax.plot([ox-raio, ox+raio], [oz+altura, oz+altura], color='blue', linewidth=1.5)
-                # Eixo central vertical
-                ax.plot([ox, ox], [oz-0.5, oz+altura+0.5], color='gray', linestyle='-.', linewidth=1)
-            elif forma == "Cone": 
-                ax.plot([ox-raio, ox, ox+raio], [oz, oz+altura, oz], color='blue', linewidth=1.5)
-                ax.plot([ox-raio, ox+raio], [oz, oz], color='blue', linewidth=1.5)
-                ax.plot([ox, ox], [oz-0.5, oz+altura+0.5], color='gray', linestyle='-.', linewidth=1)
+                ax.plot([ox-raio, ox-raio], [oz, oz+altura], color='blue')
+                ax.plot([ox+raio, ox+raio], [oz, oz+altura], color='blue')
+            else:
+                ax.plot([ox-raio, ox-raio], [oz, oz], color='blue')
+                ax.plot([ox+raio, ox+raio], [oz, oz], color='blue')
+            if forma == "Cone": 
+                ax.plot([ox-raio, ox, ox+raio], [oz, oz+altura, oz], color='blue')
 
         # Traço do Plano Secante
         x_linha = np.linspace(alpha_o - 5, alpha_o + 10, 10)
         ax.plot(x_linha, np.tan(ang_rad) * (x_linha - alpha_o), color='crimson', linewidth=2, label=f"Plano Secante α")
 
-        # --- A REGRA DE OURO DO REBATIMENTO: FUGIR DO CORTE ---
+        # --- REGRA DE OURO DO REBATIMENTO: FUGIR DO CORTE ---
+        # Se o sólido está na direita (ox >= alpha_o), rebate pra ESQUERDA (-1)
+        # Se o sólido está na esquerda (ox < alpha_o), rebate pra DIREITA (+1)
+        direcao_rebate = -1 if ox >= alpha_o else 1
+            
         rx_list, ry_list = [], []
-        
-        # Pontos âncora para traçar as linhas de compasso no desenho (8 divisões do cilindro)
-        if forma in ["Prisma", "Pirâmide"]:
-            pontos_construcao = range(len(sx_list)-1)
-        else:
-            pontos_construcao = [0, 12, 25, 37, 50, 62, 75, 87]
+        pontos_construcao = range(len(sx_list)-1) if forma in ["Prisma", "Pirâmide"] else [0, 15, 30, 45]
         
         for i in range(len(sx_list)):
             sx, sy, sz = sx_list[i], sy_list[i], sz_list[i]
             
-            # Distância matemática exata ao longo do plano secante
-            # Sinal define se está na frente ou atrás da charneira (alpha_o)
-            sinal = 1 if sx >= alpha_o else -1
-            dist_plano = sinal * np.hypot(sx - alpha_o, sz)
-            
-            # Mágica linear geométrica: Rebate tudo perfeitamente sem deformar ou dobrar!
-            rx = alpha_o + dist_plano
+            # Rebatimento exato com o raio do compasso
+            dist_rebatida = np.hypot(sx - alpha_o, sz)
+            rx = alpha_o + (dist_rebatida * direcao_rebate)
             ry = -sy 
             
-            rx_list.append(rx); ry_list.append(ry)
+            rx_list.append(rx)
+            ry_list.append(ry)
             
-            # Desenha as linhas do compasso
             if i in pontos_construcao:
                 desenhar_arco_rebatimento(ax, alpha_o, 0, sx, sz, rx) 
                 ax.plot([rx, rx], [0, ry], color='gray', linestyle=':', linewidth=1.2) 
                 ax.plot([sx, rx], [-sy, ry], color='gray', linestyle=':', linewidth=1.2) 
 
-        # Plotar a VG Final (Elipse ou Polígono Perfeito)
+        # Plotar a VG Final (Elipse ou Polígono)
         ax.plot(rx_list, ry_list, color='purple', linewidth=2.5, label="Verdadeira Grandeza (VG)")
         ax.fill(rx_list, ry_list, color='purple', alpha=0.2)
         
         if forma in ["Prisma", "Pirâmide"]: 
             ax.scatter(rx_list[:-1], ry_list[:-1], color='purple', s=30, zorder=5)
             
-        # Cruz de Eixos na VG do Cilindro (idêntico à sua foto)
-        if forma == "Cilindro":
-            sz_center = np.tan(ang_rad) * (ox - alpha_o)
-            sinal_c = 1 if ox >= alpha_o else -1
-            rx_c = alpha_o + (sinal_c * np.hypot(ox - alpha_o, sz_center))
-            ry_c = -oy
-            sec_val = np.sqrt(1 + np.tan(ang_rad)**2)
-            semi_major = raio * sec_val
-            
-            ax.plot([rx_c - semi_major - 0.5, rx_c + semi_major + 0.5], [ry_c, ry_c], color='gray', linestyle='-.', linewidth=1)
-            ax.plot([rx_c, rx_c], [ry_c - raio - 0.5, ry_c + raio + 0.5], color='gray', linestyle='-.', linewidth=1)
-            
         ax.legend(loc='upper right')
 
     if tipo_solido or dados_solido:
-        ax.set_title("Épura com Seção e VG (Rebatimento Oposto Rigoroso)")
+        ax.set_title("Épura com Seção e VG (Rebatimento Oposto ao Sólido)")
     else:
         ax.set_title("Épura (Pontos e Retas)")
         
@@ -223,7 +202,8 @@ def criar_grafico_3d(pontos_principais=None, retas=None, tipo_solido=None, dados
 
     # 1. PONTOS E RETAS BÁSICAS
     for nome, (x, y, z) in pontos_principais.items():
-        if nome.startswith('B') and len(nome) > 1: continue
+        if nome.startswith('B') and len(nome) > 1: 
+            continue
         fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[z], mode='text+markers', marker=dict(size=5, color='black'), text=[f"({nome})"], textposition="top center"))
         fig.add_trace(go.Scatter3d(x=[x], y=[0], z=[z], mode='markers', marker=dict(size=4, color='blue'), showlegend=False))
         fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode='markers', marker=dict(size=4, color='green'), showlegend=False))
@@ -243,12 +223,15 @@ def criar_grafico_3d(pontos_principais=None, retas=None, tipo_solido=None, dados
         bz, topo_z = np.full_like(theta, oz), np.full_like(theta, oz + altura)
         
         fig.add_trace(go.Scatter3d(x=bx, y=by, z=bz, mode='lines', line=dict(color='purple', width=4), name='Base'))
+        
         if forma == "Cilindro":
             fig.add_trace(go.Scatter3d(x=bx, y=by, z=topo_z, mode='lines', line=dict(color='purple', width=4), name='Topo'))
-            for i in [0, 10, 20, 30]: fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[bz[i], topo_z[i]], mode='lines', line=dict(color='purple', dash='dash')))
+            for i in [0, 10, 20, 30]: 
+                fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[bz[i], topo_z[i]], mode='lines', line=dict(color='purple', dash='dash')))
         else:
             vx, vy, vz = ox, oy, oz + altura
-            for i in [0, 10, 20, 30]: fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='purple', dash='dash')))
+            for i in [0, 10, 20, 30]: 
+                fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='purple', dash='dash')))
 
     # 3. SÓLIDOS COM SEÇÃO
     if dados_solido:
@@ -261,14 +244,17 @@ def criar_grafico_3d(pontos_principais=None, retas=None, tipo_solido=None, dados
         
         if forma == "Prisma":
             fig.add_trace(go.Scatter3d(x=bx, y=by, z=topo_z, mode='lines', line=dict(color='blue', width=4), name='Topo'))
-            for i in range(len(bx)-1): fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[oz, oz + altura], mode='lines', line=dict(color='blue', dash='dash')))
+            for i in range(len(bx)-1): 
+                fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[oz, oz + altura], mode='lines', line=dict(color='blue', dash='dash')))
         elif forma == "Cilindro":
             fig.add_trace(go.Scatter3d(x=bx, y=by, z=topo_z, mode='lines', line=dict(color='blue', width=4), name='Topo'))
-            for i in [0, 10, 20, 30]: fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[oz, oz + altura], mode='lines', line=dict(color='blue', dash='dash')))
+            for i in [0, 10, 20, 30]: 
+                fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[oz, oz + altura], mode='lines', line=dict(color='blue', dash='dash')))
         else: 
             vx, vy, vz = ox, oy, oz + altura
             pontos_tracado = range(len(bx)-1) if forma == "Pirâmide" else [0, 10, 20, 30]
-            for i in pontos_tracado: fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='blue', dash='dash')))
+            for i in pontos_tracado: 
+                fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='blue', dash='dash')))
 
         if dados_secao:
             alpha_o, alpha_1 = dados_secao
@@ -282,8 +268,8 @@ def criar_grafico_3d(pontos_principais=None, retas=None, tipo_solido=None, dados
             sx_list, sy_list, sz_list = [], [], []
             for px, py in zip(bx, by):
                 if forma in ["Prisma", "Cilindro"]:
-                    sz = np.tan(ang_rad) * (px - alpha_o)
-                    sx, sy = px, py
+                    t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura if altura != 0 else 0
+                    sx, sy, sz = px, py, oz + t * altura
                 else:
                     den = altura - np.tan(ang_rad)*(ox - px)
                     t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den if abs(den) > 1e-5 else 0
@@ -294,6 +280,7 @@ def criar_grafico_3d(pontos_principais=None, retas=None, tipo_solido=None, dados
 
     fig.update_layout(title="Espacial 3D (Gire com o mouse)", scene=dict(xaxis_range=[-10, 15], yaxis_range=[-10, 15], zaxis_range=[-10, 15]), margin=dict(l=0, r=0, b=0, t=30), height=550)
     return fig
+
 
 # --- MÓDULOS DA INTERFACE (STREAMLIT) ---
 
