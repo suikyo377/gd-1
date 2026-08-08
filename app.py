@@ -6,14 +6,14 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D e Épura com Rebatimento de Seção (VG)")
+st.markdown("### Geometria Descritiva 3D e Épura com Seção e Rebatimento de VG")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
 st.markdown("---")
 
-# --- FUNÇÃO DE ÉPURA COM REBATIMENTO GEOMÉTRICO DA VG ---
-def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None, dados_secao=None):
+# --- FUNÇÃO DE ÉPURA INTEGRADA COM REBATIMENTO DE VG ---
+def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_solido=None, dados_secao=None):
     fig, ax = plt.subplots(figsize=(10, 10))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
     ax.set_xlabel("X (Abcissa)")
@@ -41,71 +41,70 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_c
             ax.plot([c1[0], c2[0]], [c1[2], c2[2]], color='blue', linewidth=1.5)
             ax.plot([c1[0], c2[0]], [-c1[1], -c2[1]], color='green', linewidth=1.5)
 
-    # Corpos Redondos
-    if tipo_solido == "Redondo" and dados_circulo:
-        ox, oy, oz, raio, altura, forma = dados_circulo
+    # Renderização na Épura para Seção Oblíqua
+    if tipo_solido and dados_solido:
+        forma, ox, oy, oz, raio, altura, lados = dados_solido
         z_base = oz
         z_topo = oz + altura
-        x_esq = ox - raio
-        x_dir = ox + raio
         
-        # Projeção Vertical (Cilindro)
-        if forma == "Cilindro":
+        if forma in ["Cilindro", "Prisma"]:
+            x_esq = ox - raio
+            x_dir = ox + raio
             ax.plot([x_esq, x_esq], [z_base, z_topo], color='blue', linewidth=1.5)
             ax.plot([x_dir, x_dir], [z_base, z_topo], color='blue', linewidth=1.5)
             ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
             ax.plot([x_esq, x_dir], [z_topo, z_topo], color='blue', linestyle='--', linewidth=1)
-        else:
+        else: # Cone / Pirâmide
+            x_esq = ox - raio
+            x_dir = ox + raio
             ax.plot([x_esq, ox, x_dir], [z_base, z_topo, z_base], color='blue', linewidth=1.5)
             ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
 
-        # Projeção Horizontal (Circunferência perfeita abaixo da LT)
-        theta = np.linspace(0, 2*np.pi, 100)
-        cx = ox + raio * np.cos(theta)
-        cy_afastamento = -oy + raio * np.sin(theta)
-        ax.plot(cx, cy_afastamento, color='green', linewidth=1.5, label="Base (Projeção Horizontal)")
+        # Projeção Horizontal
+        if forma in ["Cilindro", "Cone"]:
+            theta = np.linspace(0, 2*np.pi, 100)
+            cx = ox + raio * np.cos(theta)
+            cy_afastamento = -oy + raio * np.sin(theta)
+            ax.plot(cx, cy_afastamento, color='green', linewidth=1.5, label="Base (Projeção Horizontal)")
+        else:
+            # Polígono regular na base horizontal
+            angulos = np.linspace(0, 2*np.pi, lados + 1)[:-1]
+            px = ox + raio * np.cos(angulos)
+            py = -oy + raio * np.sin(angulos)
+            px = np.append(px, px[0])
+            py = np.append(py, py[0])
+            ax.plot(px, py, color='green', linewidth=1.5, label="Base Poligonal H")
 
-    # Plano Secante e Verdadeira Grandeza (Rebatimento em Elipse)
+    # Plano Secante e Verdadeira Grandeza (Rebatimento)
     if dados_secao:
         alpha_o, alpha_1 = dados_secao
         ang_rad = np.radians(alpha_1)
         
-        # Traço do plano na projeção vertical
         x_linha = np.linspace(alpha_o - 4, alpha_o + 4, 10)
         z_linha = np.tan(ang_rad) * (x_linha - alpha_o)
         ax.plot(x_linha, z_linha, color='crimson', linewidth=2, label=f"Plano Secante α")
 
-        # --- REBATIMENTO DA VERDADEIRA GRANDEZA (ELIPSE DE SEÇÃO) ---
-        # O eixo maior da elipse de seção depende do ângulo alpha_1 do plano secante
+        # Rebatimento da Seção (VG)
         centro_vg_x = alpha_o + 2.0
-        centro_vg_z = -6.0  # Abaixo da LT
-        
+        centro_vg_z = -6.0
         t_vg = np.linspace(0, 2*np.pi, 100)
         semi_eixo_menor = raio
         fator_elipse = 1.0 / max(0.2, abs(np.sin(ang_rad)))
-        semi_eixo_maior = raio * fator_inclinacao if 'fator_inclinacao' in locals() else raio * fator_elipse
+        semi_eixo_maior = raio * fator_elipse
         
-        # Coordenadas da elipse rebatida de Verdadeira Grandeza
         vg_x = centro_vg_x + (semi_eixo_menor * np.cos(t_vg))
         vg_z = centro_vg_z + (semi_eixo_maior * np.sin(t_vg))
         
-        ax.plot(vg_x, vg_z, color='purple', linewidth=2.5, label="Verdadeira Grandeza (Rebatimento)")
+        ax.plot(vg_x, vg_z, color='purple', linewidth=2.5, label="Verdadeira Grandeza (VG)")
         ax.fill(vg_x, vg_z, color='purple', alpha=0.15)
         
-        # Arcos e linhas de rebatimento simulando o transporte de pontos com compasso
-        theta_arco = np.linspace(0, np.pi/2, 30)
-        arco_x = centro_vg_x + 3 * np.cos(theta_arco)
-        arco_z = centro_vg_z + 3 * np.sin(theta_arco)
-        ax.plot(arco_x, arco_z, color='gray', linestyle='-.', linewidth=1.2)
-        ax.text(centro_vg_x - 0.8, centro_vg_z + semi_eixo_maior + 0.6, "VG da Seção", fontsize=10, color='purple', fontweight='bold')
-
         ax.legend(loc='upper right')
 
-    ax.set_title("Épura com Rebatimento Geométrico da Seção (VG)")
+    ax.set_title("Épura com Seção e Verdadeira Grandeza Integrada")
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
-def criar_grafico_3d(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None, dados_secao=None):
+def criar_grafico_3d(pontos_principais, retas=[], tipo_solido=None, dados_solido=None, dados_secao=None):
     fig = go.Figure()
 
     xx = np.linspace(-10, 15, 5)
@@ -130,23 +129,40 @@ def criar_grafico_3d(pontos_principais, retas=[], tipo_solido=None, dados_circul
             c1, c2 = pontos_principais[p1], pontos_principais[p2]
             fig.add_trace(go.Scatter3d(x=[c1[0], c2[0]], y=[c1[1], c2[1]], z=[c1[2], c2[2]], mode='lines', line=dict(color='purple', width=5)))
 
-    if tipo_solido == "Redondo" and dados_circulo:
-        ox, oy, oz, raio, altura, forma = dados_circulo
+    if tipo_solido and dados_solido:
+        forma, ox, oy, oz, raio, altura, lados = dados_solido
         theta = np.linspace(0, 2*np.pi, 40)
-        bx = ox + raio * np.cos(theta)
-        by = oy + raio * np.sin(theta)
         bz = np.full_like(theta, oz)
         topo_z = np.full_like(theta, oz + altura)
         
-        fig.add_trace(go.Scatter3d(x=bx, y=by, z=bz, mode='lines', line=dict(color='purple', width=4), name='Base'))
-        if forma == "Cilindro":
-            fig.add_trace(go.Scatter3d(x=bx, y=by, z=topo_z, mode='lines', line=dict(color='purple', width=4), name='Topo'))
-            for i in [0, 10, 20, 30]:
-                fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[bz[i], topo_z[i]], mode='lines', line=dict(color='purple', dash='dash')))
-        else:
-            vx, vy, vz = ox, oy, oz + altura
-            for i in [0, 10, 20, 30]:
-                fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='purple', dash='dash')))
+        if forma in ["Cilindro", "Cone"]:
+            bx = ox + raio * np.cos(theta)
+            by = oy + raio * np.sin(theta)
+            fig.add_trace(go.Scatter3d(x=bx, y=by, z=bz, mode='lines', line=dict(color='purple', width=4), name='Base'))
+            if forma == "Cilindro":
+                fig.add_trace(go.Scatter3d(x=bx, y=by, z=topo_z, mode='lines', line=dict(color='purple', width=4), name='Topo'))
+                for i in [0, 10, 20, 30]:
+                    fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[bz[i], topo_z[i]], mode='lines', line=dict(color='purple', dash='dash')))
+            else:
+                vx, vy, vz = ox, oy, oz + altura
+                for i in [0, 10, 20, 30]:
+                    fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='purple', dash='dash')))
+        else: # Prisma ou Pirâmide poligonal
+            angulos = np.linspace(0, 2*np.pi, lados + 1)
+            bx = ox + raio * np.cos(angulos)
+            by = oy + raio * np.sin(angulos)
+            fig.add_trace(go.Scatter3d(x=bx, y=by, z=np.full_like(bx, oz), mode='lines', line=dict(color='purple', width=4), name='Base'))
+            if forma == "Prisma":
+                topo_x = bx
+                topo_y = by
+                topo_z_arr = np.full_like(bx, oz + altura)
+                fig.add_trace(go.Scatter3d(x=topo_x, y=topo_y, z=topo_z_arr, mode='lines', line=dict(color='purple', width=4), name='Topo'))
+                for i in range(len(bx)):
+                    fig.add_trace(go.Scatter3d(x=[bx[i], topo_x[i]], y=[by[i], topo_y[i]], z=[oz, oz + altura], mode='lines', line=dict(color='purple', dash='dash')))
+            else: # Pirâmide
+                vx, vy, vz = ox, oy, oz + altura
+                for i in range(len(bx)):
+                    fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[oz, vz], mode='lines', line=dict(color='purple', dash='dash')))
 
     if dados_secao:
         alpha_o, alpha_1 = dados_secao
@@ -215,7 +231,7 @@ elif menu == "SÓLIDOS":
     tipo_solido = st.selectbox("Escolha o tipo de sólido:", [
         "Prisma / Pirâmide (Base Regular por A e B)", 
         "Cone / Cilindro (Base Circular por Centro e Raio)", 
-        "Sólido com Eixo Oblíquo e Plano Secante (Seção + Rebatimento VG)"
+        "Sólido com Eixo Oblíquo e Plano Secante (Seção + VG)"
     ])
     
     if tipo_solido == "Prisma / Pirâmide (Base Regular por A e B)":
@@ -293,12 +309,12 @@ elif menu == "SÓLIDOS":
 
         if submitted_red:
             pontos = {'O': (ox, oy, oz)}
-            dados_circulo = (ox, oy, oz, raio, altura, tipo_red)
+            dados_sol = (tipo_red, ox, oy, oz, raio, altura, 0)
             col_3d, col_2d = st.columns(2)
             with col_3d:
-                st.plotly_chart(criar_grafico_3d(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo), use_container_width=True)
+                st.plotly_chart(criar_grafico_3d(pontos, tipo_solido="Redondo", dados_solido=dados_sol), use_container_width=True)
             with col_2d:
-                st.pyplot(gerar_epura_integrada(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo))
+                st.pyplot(gerar_epura_integrada(pontos, tipo_solido="Redondo", dados_solido=dados_sol))
 
     else:
         st.markdown("### Parâmetros de Seção com Plano Secante ($\alpha$) e Eixo Oblíquo")
@@ -312,21 +328,28 @@ elif menu == "SÓLIDOS":
             with col4: raio = st.number_input("Raio / Dimensão da Base", value=3.0)
             with col5: altura = st.number_input("Altura do Sólido", value=6.5)
             
+            # ADICIONADO: Seleção de todos os 4 sólidos e ajuste de lados de 3 a 8
+            st.markdown("#### Configuração do Sólido e Geometria da Base")
+            col_s1, col_s2 = st.columns(2)
+            with col_s1:
+                tipo_sol_obl = st.selectbox("Tipo de Sólido Secionado:", ["Cilindro", "Cone", "Prisma", "Pirâmide"])
+            with col_s2:
+                lados_base = st.slider("Número de lados da base (para Prisma/Pirâmide):", 3, 8, 6)
+            
             st.markdown("#### Configuração do Plano Secante ($\alpha$) / Corte")
             col6, col7 = st.columns(2)
             with col6: alpha_o = st.number_input("Traço $\\alpha_0$ (Abcissa de interseção na LT)", value=9.0)
             with col7: alpha_1 = st.number_input("Ângulo $\\alpha_1$ (Graus com a LT)", value=150.0)
             
-            tipo_sol_obl = st.selectbox("Tipo de Sólido Secionado:", ["Cilindro Reto/Oblíquo", "Prisma Hexagonal", "Pirâmide / Cone"])
-            submitted_sec = st.form_submit_button("Gerar Sólido e Rebatimento de VG")
+            submitted_sec = st.form_submit_button("Gerar Sólido, Seção e Rebatimento de VG")
 
         if submitted_sec:
             pontos = {'O': (ox, oy, oz)}
-            dados_circulo = (ox, oy, oz, raio, altura, "Cilindro")
+            dados_sol = (tipo_sol_obl, ox, oy, oz, raio, altura, lados_base)
             dados_secao = (alpha_o, alpha_1)
             
             col_3d, col_2d = st.columns(2)
             with col_3d:
-                st.plotly_chart(criar_grafico_3d(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo, dados_secao=dados_secao), use_container_width=True)
+                st.plotly_chart(criar_grafico_3d(pontos, tipo_solido="Geral", dados_solido=dados_sol, dados_secao=dados_secao), use_container_width=True)
             with col_2d:
-                st.pyplot(gerar_epura_integrada(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo, dados_secao=dados_secao))
+                st.pyplot(gerar_epura_integrada(pontos, tipo_solido="Geral", dados_solido=dados_sol, dados_secao=dados_secao))
