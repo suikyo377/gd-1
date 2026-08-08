@@ -13,13 +13,13 @@ menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "S�
 st.markdown("---")
 
 # --- FUNÇÃO DE ÉPURA ---
-def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None):
+def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None, dados_secao=None):
     fig, ax = plt.subplots(figsize=(7, 6))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
     ax.set_xlabel("X (Abcissa)")
     ax.set_ylabel("Projeções (Cota / -Afastamento)")
-    ax.set_xlim([-10, 15])
-    ax.set_ylim([-10, 15])
+    ax.set_xlim([-10, 20])
+    ax.set_ylim([-10, 20])
     ax.grid(True, linestyle='--', alpha=0.5)
 
     # Plotar pontos principais
@@ -62,21 +62,31 @@ def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=Non
         cy_afastamento = -oy + raio * np.sin(theta)
         ax.plot(cx, cy_afastamento, color='green', linewidth=1.5)
 
-    ax.set_title("Épura (2D)")
+    # Representação de Plano Secante (Seção)
+    if dados_secao:
+        alpha_o, alpha_1 = dados_secao
+        # Traço vertical do plano secante na épura passando por alpha_o com inclinação alpha_1
+        ang_rad = np.radians(alpha_1)
+        x_linha = np.linspace(alpha_o - 5, alpha_o + 5, 10)
+        z_linha = np.tan(ang_rad) * (x_linha - alpha_o)
+        ax.plot(x_linha, z_linha, color='crimson', linewidth=2, label=f"Plano Secante α (αo={alpha_o}, α1={alpha_1}°)")
+        ax.legend(loc='upper right')
+
+    ax.set_title("Épura (2D) com Seção")
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
-def criar_grafico_3d(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None):
+def criar_grafico_3d(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None, dados_secao=None):
     fig = go.Figure()
 
-    xx = np.linspace(-10, 10, 5)
-    zz = np.linspace(-10, 10, 5)
+    xx = np.linspace(-10, 15, 5)
+    zz = np.linspace(-10, 15, 5)
     XX, ZZ = np.meshgrid(xx, zz)
     YY = np.zeros_like(XX)
 
     fig.add_trace(go.Surface(x=XX, y=YY, z=ZZ, colorscale=[[0, 'gray'], [1, 'gray']], opacity=0.15, showscale=False))
     fig.add_trace(go.Surface(x=XX, y=ZZ, z=YY, colorscale=[[0, 'gray'], [1, 'gray']], opacity=0.15, showscale=False))
-    fig.add_trace(go.Scatter3d(x=[-10, 10], y=[0, 0], z=[0, 0], mode='lines', line=dict(color='black', width=6), name='Linha de Terra'))
+    fig.add_trace(go.Scatter3d(x=[-10, 15], y=[0, 0], z=[0, 0], mode='lines', line=dict(color='black', width=6), name='Linha de Terra'))
 
     for nome, (x, y, z) in pontos_principais.items():
         if nome.startswith('B') and len(nome) > 1: continue
@@ -108,6 +118,16 @@ def criar_grafico_3d(pontos_principais, retas=[], tipo_solido=None, dados_circul
             vx, vy, vz = ox, oy, oz + altura
             for i in [0, 10, 20, 30]:
                 fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='purple', dash='dash')))
+
+    # Plano Secante no 3D
+    if dados_secao:
+        alpha_o, alpha_1 = dados_secao
+        ang_rad = np.radians(alpha_1)
+        yy_p = np.linspace(-10, 10, 5)
+        xx_p = np.linspace(alpha_o - 5, alpha_o + 5, 5)
+        XX_p, YY_p = np.meshgrid(xx_p, yy_p)
+        ZZ_p = np.tan(ang_rad) * (XX_p - alpha_o)
+        fig.add_trace(go.Surface(x=XX_p, y=YY_p, z=ZZ_p, colorscale=[[0, 'crimson'], [1, 'crimson']], opacity=0.4, showscale=False, name='Plano Secante'))
 
     fig.update_layout(
         title="Espacial 3D (Gire com o mouse)",
@@ -161,10 +181,14 @@ elif menu == "RETAS":
         with col_3d: st.plotly_chart(criar_grafico_3d(pontos, retas=[('A', 'B')]), use_container_width=True)
         with col_2d: st.pyplot(gerar_epura(pontos, retas=[('A', 'B')]))
 
-# --- MÓDULO DE SÓLIDOS ---
+# --- MÓDULO DE SÓLIDOS & SEÇÕES ---
 elif menu == "SÓLIDOS":
-    st.subheader("📐 Módulo: Sólidos Geométricos")
-    tipo_solido = st.selectbox("Escolha o tipo de sólido:", ["Prisma / Pirâmide (Base Regular por A e B)", "Cone / Cilindro (Base Circular por Centro e Raio)"])
+    st.subheader("📐 Módulo: Sólidos e Seções com Eixo Oblíquo")
+    tipo_solido = st.selectbox("Escolha o tipo de sólido:", [
+        "Prisma / Pirâmide (Base Regular por A e B)", 
+        "Cone / Cilindro (Base Circular por Centro e Raio)", 
+        "Sólido com Eixo Oblíquo e Plano Secante (Seção)"
+    ])
     
     if tipo_solido == "Prisma / Pirâmide (Base Regular por A e B)":
         with st.form("form_sol_reg"):
@@ -211,8 +235,6 @@ elif menu == "SÓLIDOS":
                     pontos[t_nome] = (px, py, pz + altura)
                     topos_nomes.append(t_nome)
                     retas_extras.append((original, t_nome))
-                
-                # Fechar o ciclo superior do prisma (topo)
                 for i in range(len(topos_nomes)):
                     p1 = topos_nomes[i]
                     p2 = topos_nomes[(i + 1) % len(topos_nomes)]
@@ -222,7 +244,6 @@ elif menu == "SÓLIDOS":
                 vx = sum(c[0] for c in coords_base) / len(coords_base)
                 vy = sum(c[1] for c in coords_base) / len(coords_base)
                 vz = (sum(c[2] for c in coords_base) / len(coords_base)) + altura
-                
                 pontos['V'] = (vx, vy, vz)
                 for original in base_nomes:
                     retas_extras.append((original, 'V'))
@@ -231,7 +252,7 @@ elif menu == "SÓLIDOS":
             with col_3d: st.plotly_chart(criar_grafico_3d(pontos, retas=retas_extras), use_container_width=True)
             with col_2d: st.pyplot(gerar_epura(pontos, retas=retas_extras))
 
-    else:
+    elif tipo_solido == "Cone / Cilindro (Base Circular por Centro e Raio)":
         with st.form("form_redondo"):
             col1, col2, col3 = st.columns(3)
             with col1: ox = st.number_input("X do Centro (O)", value=3.0)
@@ -250,3 +271,34 @@ elif menu == "SÓLIDOS":
                 st.plotly_chart(criar_grafico_3d(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo), use_container_width=True)
             with col_2d:
                 st.pyplot(gerar_epura(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo))
+
+    else:
+        st.markdown("### Parâmetros de Seção com Plano Secante ($\alpha$) e Eixo Oblíquo")
+        with st.form("form_secao_oblíqua"):
+            col1, col2, col3 = st.columns(3)
+            with col1: ox = st.number_input("X do Centro da Base (O)", value=2.0)
+            with col2: oy = st.number_input("Y do Centro da Base (O)", value=4.0)
+            with col3: oz = st.number_input("Z do Centro da Base (O)", value=0.0)
+            
+            col4, col5 = st.columns(2)
+            with col4: raio = st.number_input("Raio / Dimensão da Base", value=3.0)
+            with col5: altura = st.number_input("Altura do Sólido", value=6.5)
+            
+            st.markdown("#### Configuração do Plano Secante ($\alpha$) / Corte")
+            col6, col7 = st.columns(2)
+            with col6: alpha_o = st.number_input("Traço $\\alpha_0$ (Abcissa de interseção na LT)", value=9.0)
+            with col7: alpha_1 = st.number_input("Ângulo $\\alpha_1$ (Graus com a LT)", value=150.0)
+            
+            tipo_sol_obl = st.selectbox("Tipo de Sólido Secionado:", ["Cilindro Reto/Oblíquo", "Prisma Hexagonal", "Pirâmide / Cone"])
+            submitted_sec = st.form_submit_button("Gerar Sólido e Seção Plana")
+
+        if submitted_sec:
+            pontos = {'O': (ox, oy, oz)}
+            dados_circulo = (ox, oy, oz, raio, altura, "Cilindro")
+            dados_secao = (alpha_o, alpha_1)
+            
+            col_3d, col_2d = st.columns(2)
+            with col_3d:
+                st.plotly_chart(criar_grafico_3d(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo, dados_secao=dados_secao), use_container_width=True)
+            with col_2d:
+                st.pyplot(gerar_epura(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo, dados_secao=dados_secao))
