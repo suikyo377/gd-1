@@ -6,7 +6,7 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D e Épura com VG Rigorosa (Rebatimento Oposto)")
+st.markdown("### Geometria Descritiva 3D e Épura com VG Rigorosa")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
@@ -17,19 +17,13 @@ def obter_geometria_base(forma, ox, oy, oz, raio, lados):
     if forma in ["Cilindro", "Cone"]:
         angulos = np.linspace(0, 2 * np.pi, 60)
     else:
-        # Orientação geométrica clássica ditada pelo desenho técnico
-        if lados == 3: 
-            giro = -np.pi / 2  
-        elif lados == 4: 
-            giro = np.pi / 4   
-        elif lados == 5: 
-            giro = -np.pi / 2  # Pentágono com o vértice para cima na Épura
-        elif lados == 6: 
-            giro = 0           
-        elif lados == 8: 
-            giro = np.pi / 8   
-        else: 
-            giro = -np.pi / 2 if lados % 2 != 0 else 0
+        # Orientação geométrica clássica para polígonos
+        if lados == 3: giro = -np.pi / 2  
+        elif lados == 4: giro = np.pi / 4   
+        elif lados == 5: giro = -np.pi / 2  # Pentágono (Vértice para cima)
+        elif lados == 6: giro = 0           # Hexágono (Lados horizontais)
+        elif lados == 8: giro = np.pi / 8   
+        else: giro = -np.pi / 2 if lados % 2 != 0 else 0
             
         angulos = np.linspace(0, 2 * np.pi, lados + 1)[:-1] + giro
         
@@ -47,18 +41,18 @@ def desenhar_arco_rebatimento(ax, cx, cy, start_x, start_y, end_x):
     r = np.hypot(start_x - cx, start_y - cy)
     theta1 = np.arctan2(start_y - cy, start_x - cx)
     
-    if end_x > cx:
-        theta2 = 0.0
-        t = np.linspace(theta1, theta2, 30)
-    else:
-        theta2 = np.pi
-        t = np.linspace(theta1, theta2, 30)
+    # Se rebate pra direita (end_x > cx), desce até 0 graus. Se pra esquerda, desce até 180 (pi).
+    theta2 = 0.0 if end_x > cx else np.pi
         
+    t = np.linspace(theta1, theta2, 30)
     ax.plot(cx + r * np.cos(t), cy + r * np.sin(t), color='gray', linestyle='-.', linewidth=1.2)
 
 # --- FUNÇÃO DE ÉPURA INTEGRADA ---
-def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dados_circulo=None, dados_solido=None, dados_secao=None):
-    fig, ax = plt.subplots(figsize=(10, 10))
+def gerar_epura_integrada(pontos_principais=None, retas=None, tipo_solido=None, dados_circulo=None, dados_solido=None, dados_secao=None):
+    if pontos_principais is None: pontos_principais = {}
+    if retas is None: retas = []
+    
+    fig, ax = plt.subplots(figsize=(11, 10))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
     ax.set_xlabel("X (Abcissa)")
     ax.set_ylabel("Projeções e Rebatimento (VG)")
@@ -115,19 +109,12 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
         sx_list, sy_list, sz_list = [], [], []
         for px, py in zip(px_base, py_base):
             if forma in ["Prisma", "Cilindro"]:
-                if altura != 0:
-                    t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura 
-                else:
-                    t = 0
-                sx = px
-                sy = py
+                t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura if altura != 0 else 0
+                sx, sy = px, py
                 sz = oz + t * altura
             else:
                 den = altura - np.tan(ang_rad)*(ox - px)
-                if abs(den) > 1e-5:
-                    t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den 
-                else:
-                    t = 0
+                t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den if abs(den) > 1e-5 else 0
                 sx = px + t * (ox - px)
                 sy = py + t * (oy - py)
                 sz = oz + t * altura
@@ -136,7 +123,7 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
             sy_list.append(sy)
             sz_list.append(sz)
 
-        # Arestas / Contornos
+        # Arestas / Contornos verticais
         if forma in ["Prisma", "Pirâmide"]:
             for px, sz_corte in zip(px_base[:-1], sz_list[:-1]):
                 if forma == "Prisma":
@@ -150,7 +137,6 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
             else:
                 ax.plot([ox-raio, ox-raio], [oz, oz], color='blue')
                 ax.plot([ox+raio, ox+raio], [oz, oz], color='blue')
-                
             if forma == "Cone": 
                 ax.plot([ox-raio, ox, ox+raio], [oz, oz+altura, oz], color='blue')
 
@@ -158,25 +144,18 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
         x_linha = np.linspace(alpha_o - 5, alpha_o + 10, 10)
         ax.plot(x_linha, np.tan(ang_rad) * (x_linha - alpha_o), color='crimson', linewidth=2, label=f"Plano Secante α")
 
-        # --- A REGRA DE OURO DO REBATIMENTO: FOGE DO CORTE ---
-        if ox > alpha_o:
-            direcao_rebate = -1  # Se o corte está na direita, a VG vai para a ESQUERDA
-        else:
-            direcao_rebate = 1   # Se o corte está na esquerda, a VG vai para a DIREITA
+        # --- REGRA DE OURO DO REBATIMENTO: FUGIR DO CORTE ---
+        # Se o sólido está na direita (ox >= alpha_o), rebate pra ESQUERDA (-1)
+        # Se o sólido está na esquerda (ox < alpha_o), rebate pra DIREITA (+1)
+        direcao_rebate = -1 if ox >= alpha_o else 1
             
         rx_list, ry_list = [], []
-        
-        if forma in ["Prisma", "Pirâmide"]:
-            pontos_construcao = range(len(sx_list)-1)
-        else:
-            pontos_construcao = [0, 15, 30, 45]
+        pontos_construcao = range(len(sx_list)-1) if forma in ["Prisma", "Pirâmide"] else [0, 15, 30, 45]
         
         for i in range(len(sx_list)):
-            sx = sx_list[i]
-            sy = sy_list[i]
-            sz = sz_list[i]
+            sx, sy, sz = sx_list[i], sy_list[i], sz_list[i]
             
-            # Rebatimento exato de cada ponto interceptado
+            # Rebatimento exato com o raio do compasso
             dist_rebatida = np.hypot(sx - alpha_o, sz)
             rx = alpha_o + (dist_rebatida * direcao_rebate)
             ry = -sy 
@@ -189,7 +168,7 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
                 ax.plot([rx, rx], [0, ry], color='gray', linestyle=':', linewidth=1.2) 
                 ax.plot([sx, rx], [-sy, ry], color='gray', linestyle=':', linewidth=1.2) 
 
-        # Plotar a VG Final
+        # Plotar a VG Final (Elipse ou Polígono)
         ax.plot(rx_list, ry_list, color='purple', linewidth=2.5, label="Verdadeira Grandeza (VG)")
         ax.fill(rx_list, ry_list, color='purple', alpha=0.2)
         
@@ -198,11 +177,18 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
             
         ax.legend(loc='upper right')
 
-    ax.set_title("Épura com Seção e VG (Rebatimento Exato e Oposto ao Plano)")
+    if tipo_solido or dados_solido:
+        ax.set_title("Épura com Seção e VG (Rebatimento Oposto ao Sólido)")
+    else:
+        ax.set_title("Épura (Pontos e Retas)")
+        
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
-def criar_grafico_3d(pontos_principais={}, retas=[], tipo_solido=None, dados_circulo=None, dados_solido=None, dados_secao=None):
+def criar_grafico_3d(pontos_principais=None, retas=None, tipo_solido=None, dados_circulo=None, dados_solido=None, dados_secao=None):
+    if pontos_principais is None: pontos_principais = {}
+    if retas is None: retas = []
+    
     fig = go.Figure()
 
     xx = np.linspace(-10, 15, 5)
@@ -226,18 +212,15 @@ def criar_grafico_3d(pontos_principais={}, retas=[], tipo_solido=None, dados_cir
 
     for p1, p2 in retas:
         if p1 in pontos_principais and p2 in pontos_principais:
-            c1 = pontos_principais[p1]
-            c2 = pontos_principais[p2]
+            c1, c2 = pontos_principais[p1], pontos_principais[p2]
             fig.add_trace(go.Scatter3d(x=[c1[0], c2[0]], y=[c1[1], c2[1]], z=[c1[2], c2[2]], mode='lines', line=dict(color='purple', width=5)))
 
     # 2. SÓLIDOS REDONDOS SIMPLES
     if tipo_solido == "Redondo" and dados_circulo:
         ox, oy, oz, raio, altura, forma = dados_circulo
         theta = np.linspace(0, 2*np.pi, 40)
-        bx = ox + raio * np.cos(theta)
-        by = oy + raio * np.sin(theta)
-        bz = np.full_like(theta, oz)
-        topo_z = np.full_like(theta, oz + altura)
+        bx, by = ox + raio * np.cos(theta), oy + raio * np.sin(theta)
+        bz, topo_z = np.full_like(theta, oz), np.full_like(theta, oz + altura)
         
         fig.add_trace(go.Scatter3d(x=bx, y=by, z=bz, mode='lines', line=dict(color='purple', width=4), name='Base'))
         
@@ -269,11 +252,7 @@ def criar_grafico_3d(pontos_principais={}, retas=[], tipo_solido=None, dados_cir
                 fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[oz, oz + altura], mode='lines', line=dict(color='blue', dash='dash')))
         else: 
             vx, vy, vz = ox, oy, oz + altura
-            if forma == "Pirâmide":
-                pontos_tracado = range(len(bx)-1) 
-            else:
-                pontos_tracado = [0, 10, 20, 30]
-                
+            pontos_tracado = range(len(bx)-1) if forma == "Pirâmide" else [0, 10, 20, 30]
             for i in pontos_tracado: 
                 fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='blue', dash='dash')))
 
@@ -289,25 +268,13 @@ def criar_grafico_3d(pontos_principais={}, retas=[], tipo_solido=None, dados_cir
             sx_list, sy_list, sz_list = [], [], []
             for px, py in zip(bx, by):
                 if forma in ["Prisma", "Cilindro"]:
-                    if altura != 0:
-                        t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura 
-                    else:
-                        t = 0
-                    sx = px
-                    sy = py
-                    sz = oz + t * altura
+                    t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura if altura != 0 else 0
+                    sx, sy, sz = px, py, oz + t * altura
                 else:
                     den = altura - np.tan(ang_rad)*(ox - px)
-                    if abs(den) > 1e-5:
-                        t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den 
-                    else:
-                        t = 0
-                    sx = px + t * (ox - px)
-                    sy = py + t * (oy - py)
-                    sz = oz + t * altura
-                sx_list.append(sx)
-                sy_list.append(sy)
-                sz_list.append(sz)
+                    t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den if abs(den) > 1e-5 else 0
+                    sx, sy, sz = px + t * (ox - px), py + t * (oy - py), oz + t * altura
+                sx_list.append(sx); sy_list.append(sy); sz_list.append(sz)
                 
             fig.add_trace(go.Scatter3d(x=sx_list, y=sy_list, z=sz_list, mode='lines', line=dict(color='purple', width=6), name='Seção (Corte)'))
 
@@ -467,4 +434,4 @@ elif menu == "SÓLIDOS":
             dados_secao = (alpha_o, alpha_1)
             col_3d, col_2d = st.columns(2)
             with col_3d: st.plotly_chart(criar_grafico_3d(dados_solido=dados_sol, dados_secao=dados_secao), use_container_width=True)
-            with col_2d: st.pyplot(gerar_epura_integrada({}, dados_solido=dados_sol, dados_secao=dados_secao))
+            with col_2d: st.pyplot(gerar_epura_integrada(dados_solido=dados_sol, dados_secao=dados_secao))
