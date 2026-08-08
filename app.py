@@ -6,23 +6,26 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D e Épura com Verdadeira Grandeza Integrada")
+st.markdown("### Geometria Descritiva 3D e Épura com VG Abaixo da LT")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
 st.markdown("---")
 
-# --- FUNÇÃO DE ÉPURA CLÁSSICA COM VG NA MESMA TELA ---
+# --- FUNÇÃO DE ÉPURA COM VG ABAIXO DA LT E CIRCUNFERÊNCIA PERFEITA ---
 def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None, dados_secao=None):
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(9, 9))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
     ax.set_xlabel("X (Abcissa)")
     ax.set_ylabel("Projeções e Rebatimento (VG)")
     ax.set_xlim([-10, 25])
-    ax.set_ylim([-15, 20])
+    ax.set_ylim([-15, 15])
     ax.grid(True, linestyle='--', alpha=0.5)
+    
+    # Forçar proporção geométrica real para o círculo não ficar oval
+    ax.set_aspect('equal', adjustable='box')
 
-    # Plotar pontos principais na Épura padrão
+    # Plotar pontos principais na Épura
     for nome, (x, y, z) in pontos_principais.items():
         if nome.startswith('B') and len(nome) > 1: continue
         ax.scatter(x, z, color='blue', s=40)
@@ -40,7 +43,7 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_c
             ax.plot([c1[0], c2[0]], [c1[2], c2[2]], color='blue', linewidth=1.5)
             ax.plot([c1[0], c2[0]], [-c1[1], -c2[1]], color='green', linewidth=1.5)
 
-    # Corpos Redondos e Seção na mesma Épura
+    # Corpos Redondos
     if tipo_solido == "Redondo" and dados_circulo:
         ox, oy, oz, raio, altura, forma = dados_circulo
         z_base = oz
@@ -48,7 +51,7 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_c
         x_esq = ox - raio
         x_dir = ox + raio
         
-        # Projeção Vertical (Cilindro/Cone)
+        # Projeção Vertical (Cilindro)
         if forma == "Cilindro":
             ax.plot([x_esq, x_esq], [z_base, z_topo], color='blue', linewidth=1.5)
             ax.plot([x_dir, x_dir], [z_base, z_topo], color='blue', linewidth=1.5)
@@ -58,42 +61,41 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_c
             ax.plot([x_esq, ox, x_dir], [z_base, z_topo, z_base], color='blue', linewidth=1.5)
             ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
 
-        # Projeção Horizontal (Base em baixo)
-        theta = np.linspace(0, 2*np.pi, 50)
+        # Projeção Horizontal (Circunferência perfeita abaixo da LT)
+        theta = np.linspace(0, 2*np.pi, 100)
         cx = ox + raio * np.cos(theta)
         cy_afastamento = -oy + raio * np.sin(theta)
-        ax.plot(cx, cy_afastamento, color='green', linewidth=1.5)
+        ax.plot(cx, cy_afastamento, color='green', linewidth=1.5, label="Projeção Horizontal (Círculo)")
 
-    # Plano Secante e Verdadeira Grandeza rebatida na mesma Épura (estilo prancha UEFS)
+    # Plano Secante e Verdadeira Grandeza posicionada ABAIXO DA LT
     if dados_secao:
         alpha_o, alpha_1 = dados_secao
         ang_rad = np.radians(alpha_1)
         
-        # Traço do plano secante na projeção vertical
+        # Traço do plano na vertical
         x_linha = np.linspace(alpha_o - 4, alpha_o + 4, 10)
         z_linha = np.tan(ang_rad) * (x_linha - alpha_o)
         ax.plot(x_linha, z_linha, color='crimson', linewidth=2, label=f"Plano Secante α")
 
-        # --- VERDADEIRA GRANDEZA (VG) REBATIDA NA MESMA FOLHA ---
-        # Desenhando o rebatimento da seção mais à direita na mesma épura (como nas pranchas)
-        vg_centro_x = alpha_o + 6
-        vg_centro_z = 8
-        t_vg = np.linspace(0, 2*np.pi, 50)
-        fator_inclinacao = 1.2 / max(0.3, abs(np.cos(ang_rad)))
+        # --- VERDADEIRA GRANDEZA (VG) ABAIXO DA LT ---
+        # Posicionada na parte inferior da épura (ex: Z negativo, simulando o rebatimento idêntico à prancha)
+        vg_centro_x = alpha_o + 4
+        vg_centro_z = -7.0  # Abaixo da Linha de Terra
         
+        t_vg = np.linspace(0, 2*np.pi, 100)
         vg_x = vg_centro_x + (raio * np.cos(t_vg))
-        vg_z = vg_centro_z + (raio * fator_inclinacao * np.sin(t_vg))
+        vg_z = vg_centro_z + (raio * np.sin(t_vg)) # Círculo perfeito em verdadeira grandeza
         
         ax.plot(vg_x, vg_z, color='purple', linewidth=2.5, label="Verdadeira Grandeza (VG)")
         ax.fill(vg_x, vg_z, color='purple', alpha=0.15)
         
-        # Arcos de chamada pontilhados simulando o transporte de medidas característico da prancha
-        ax.plot([alpha_o, vg_centro_x], [5, vg_centro_z], color='gray', linestyle='-.', alpha=0.7)
-        ax.text(vg_centro_x - 1, vg_centro_z + raio + 0.5, "VG da Seção", fontsize=10, color='purple', fontweight='bold')
+        # Linhas de rebatimento auxiliares
+        ax.plot([alpha_o, vg_centro_x], [0, vg_centro_z], color='gray', linestyle='-.', alpha=0.7)
+        ax.text(vg_centro_x - 1.5, vg_centro_z + raio + 0.8, "VG da Seção", fontsize=10, color='purple', fontweight='bold')
 
-        ax.legend(loc='upper left')
+        ax.legend(loc='upper right')
 
-    ax.set_title("Épura Única com Projeções e Verdadeira Grandeza Integrada")
+    ax.set_title("Épura com Circunferência Perfeita e VG Abaixo da LT")
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
@@ -207,7 +209,7 @@ elif menu == "SÓLIDOS":
     tipo_solido = st.selectbox("Escolha o tipo de sólido:", [
         "Prisma / Pirâmide (Base Regular por A e B)", 
         "Cone / Cilindro (Base Circular por Centro e Raio)", 
-        "Sólido com Eixo Oblíquo e Plano Secante (Seção na mesma Épura)"
+        "Sólido com Eixo Oblíquo e Plano Secante (Seção + VG Abaixo da LT)"
     ])
     
     if tipo_solido == "Prisma / Pirâmide (Base Regular por A e B)":
@@ -310,7 +312,7 @@ elif menu == "SÓLIDOS":
             with col7: alpha_1 = st.number_input("Ângulo $\\alpha_1$ (Graus com a LT)", value=150.0)
             
             tipo_sol_obl = st.selectbox("Tipo de Sólido Secionado:", ["Cilindro Reto/Oblíquo", "Prisma Hexagonal", "Pirâmide / Cone"])
-            submitted_sec = st.form_submit_button("Gerar Sólido e Seção na Mesma Épura")
+            submitted_sec = st.form_submit_button("Gerar Sólido e VG Abaixo da LT")
 
         if submitted_sec:
             pontos = {'O': (ox, oy, oz)}
