@@ -6,7 +6,7 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D e Épura (Orientação Clássica e VG Rigorosa)")
+st.markdown("### Geometria Descritiva 3D e Épura (VG com Rebatimento Oposto ao Plano)")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
@@ -17,17 +17,17 @@ def obter_geometria_base(forma, ox, oy, oz, raio, lados):
     if forma in ["Cilindro", "Cone"]:
         angulos = np.linspace(0, 2*np.pi, 60)
     else:
-        # Orientação geométrica clássica ditada pelo desenho técnico (Pranchas)
+        # Orientação geométrica clássica ditada pelo desenho técnico
         if lados == 3:
-            giro = -np.pi / 2  # Triângulo: Vértice apontando para cima (LT)
+            giro = -np.pi / 2  
         elif lados == 4:
-            giro = np.pi / 4   # Quadrado: Apoiado de forma plana
+            giro = np.pi / 4   
         elif lados == 5:
-            giro = -np.pi / 2  # Pentágono: Vértice central para cima (LT)
+            giro = -np.pi / 2  
         elif lados == 6:
-            giro = 0           # Hexágono: Vértices nas laterais, lados planos em cima/baixo
+            giro = 0           
         elif lados == 8:
-            giro = np.pi / 8   # Octógono: Apoiado de forma plana
+            giro = np.pi / 8   
         else:
             giro = -np.pi / 2 if lados % 2 != 0 else 0
             
@@ -36,7 +36,6 @@ def obter_geometria_base(forma, ox, oy, oz, raio, lados):
     bx = ox + raio * np.cos(angulos)
     by = oy + raio * np.sin(angulos)
     
-    # Fechar o polígono para o desenho contínuo
     if forma in ["Prisma", "Pirâmide"]:
         bx = np.append(bx, bx[0])
         by = np.append(by, by[0])
@@ -62,7 +61,7 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_s
     ax.set_ylim([-15, 15])
     ax.grid(True, linestyle='--', alpha=0.5)
     
-    # Proporção geométrica real travada (evita círculos ovais e VG deformada)
+    # Proporção geométrica real travada (evita deformações)
     ax.set_aspect('equal', adjustable='box')
 
     if tipo_solido and dados_solido and dados_secao:
@@ -112,8 +111,10 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_s
         z_linha = np.tan(ang_rad) * (x_linha - alpha_o)
         ax.plot(x_linha, z_linha, color='crimson', linewidth=2, label=f"Plano Secante α")
 
-        # 6. REBATIMENTO INTELIGENTE E EXATO
-        direcao_rebate = -1 if ox >= alpha_o else 1 # Foge para o lado oposto do sólido
+        # 6. REBATIMENTO INTELIGENTE (FOGE DA INCLINAÇÃO DO PLANO)
+        # Se inclina para a esquerda (ângulo > 90, cos < 0), rebate para a direita (+1)
+        # Se inclina para a direita (ângulo < 90, cos > 0), rebate para a esquerda (-1)
+        direcao_rebate = 1 if np.cos(ang_rad) < 0 else -1 
         
         rx_list, ry_list = [], []
         pontos_construcao = range(len(sx_list)-1) if forma in ["Prisma", "Pirâmide"] else [0, 15, 30, 45]
@@ -121,7 +122,7 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_s
         for i in range(len(sx_list)):
             sx, sy, sz = sx_list[i], sy_list[i], sz_list[i]
             
-            # Raio do compasso e rebatimento
+            # Raio do compasso a partir do traço e lançamento para o lado oposto
             dist_rebatida = np.hypot(sx - alpha_o, sz)
             rx = alpha_o + dist_rebatida * direcao_rebate
             ry = -sy 
@@ -131,11 +132,11 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_s
             
             # Linhas de Construção do compasso
             if i in pontos_construcao:
-                desenhar_arco_rebatimento(ax, alpha_o, 0, sx, sz, rx) # Arco até a LT
+                desenhar_arco_rebatimento(ax, alpha_o, 0, sx, sz, rx) # Arco descendo até a LT
                 ax.plot([rx, rx], [0, ry], color='gray', linestyle=':', linewidth=1.2) # Chamada vertical
-                ax.plot([sx, rx], [-sy, ry], color='gray', linestyle=':', linewidth=1.2) # Chamada horizontal
+                ax.plot([sx, rx], [-sy, ry], color='gray', linestyle=':', linewidth=1.2) # Chamada horizontal puxando afastamento
 
-        # 7. Plotar a Verdadeira Grandeza (Polígono exato ou Elipse Final)
+        # 7. Plotar a Verdadeira Grandeza
         ax.plot(rx_list, ry_list, color='purple', linewidth=2.5, label="Verdadeira Grandeza (VG)")
         ax.fill(rx_list, ry_list, color='purple', alpha=0.2)
         
@@ -144,7 +145,7 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_s
             ax.scatter(rx_list[:-1], ry_list[:-1], color='purple', s=30, zorder=5)
 
         ax.legend(loc='upper right')
-        ax.set_title("Épura com Seção e Rebatimento Geométrico Exato (VG)")
+        ax.set_title("Épura com Seção e Rebatimento Oposto Exato (VG)")
         
     return fig
 
@@ -164,15 +165,12 @@ def criar_grafico_3d(tipo_solido=None, dados_solido=None, dados_secao=None):
     if tipo_solido and dados_solido:
         forma, ox, oy, oz, raio, altura, lados = dados_solido
         
-        # Sincronização 3D com a orientação correta
         bx, by = obter_geometria_base(forma, ox, oy, oz, raio, lados)
         bz = np.full_like(bx, oz)
         topo_z = np.full_like(bx, oz + altura)
         
-        # Base Inferior
         fig.add_trace(go.Scatter3d(x=bx, y=by, z=bz, mode='lines', line=dict(color='green', width=4), name='Base'))
         
-        # Arestas / Geratrizes
         if forma == "Prisma":
             fig.add_trace(go.Scatter3d(x=bx, y=by, z=topo_z, mode='lines', line=dict(color='blue', width=4), name='Topo'))
             for i in range(len(bx)-1):
@@ -187,19 +185,16 @@ def criar_grafico_3d(tipo_solido=None, dados_solido=None, dados_secao=None):
             for i in pontos_tracado:
                 fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='blue', dash='dash')))
 
-    # Plano Secante e Polígono de Corte 3D
     if dados_secao:
         alpha_o, alpha_1 = dados_secao
         ang_rad = np.radians(alpha_1)
         
-        # Desenhar o Plano Transparente
         yy_p = np.linspace(oy - raio - 2, oy + raio + 2, 5)
         xx_p = np.linspace(alpha_o - 5, alpha_o + 10, 5)
         XX_p, YY_p = np.meshgrid(xx_p, yy_p)
         ZZ_p = np.tan(ang_rad) * (XX_p - alpha_o)
         fig.add_trace(go.Surface(x=XX_p, y=YY_p, z=ZZ_p, colorscale=[[0, 'crimson'], [1, 'crimson']], opacity=0.3, showscale=False, name='Plano Secante'))
 
-        # Desenhar a Seção real (Roxa) no espaço 3D
         sx_list, sy_list, sz_list = [], [], []
         for px, py in zip(bx, by):
             if forma in ["Prisma", "Cilindro"]:
@@ -256,7 +251,7 @@ elif menu == "SÓLIDOS":
         st.markdown("#### Configuração do Plano Secante ($\alpha$) / Corte")
         col6, col7 = st.columns(2)
         with col6: alpha_o = st.number_input("Traço $\\alpha_0$ (Abcissa de interseção na LT)", value=2.0)
-        with col7: alpha_1 = st.number_input("Ângulo $\\alpha_1$ (Graus com a LT)", value=30.0)
+        with col7: alpha_1 = st.number_input("Ângulo $\\alpha_1$ (Graus com a LT)", value=150.0)
         
         submitted_sec = st.form_submit_button("Gerar Geometria Clássica e Rebatimento")
 
