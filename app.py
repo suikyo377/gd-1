@@ -6,23 +6,31 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D (Rotacionável) e Épura Sincronizada")
+st.markdown("### Geometria Descritiva 3D, Épura e Verdadeira Grandeza da Seção")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
 st.markdown("---")
 
-# --- FUNÇÃO DE ÉPURA ---
-def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None, dados_secao=None):
-    fig, ax = plt.subplots(figsize=(7, 6))
+# --- FUNÇÃO DE ÉPURA E VERDADEIRA GRANDEZA ---
+def gerar_epura_e_vg(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None, dados_secao=None):
+    # Se tiver seção, criamos uma figura com 2 subplots (Épura à esquerda e VG à direita)
+    if dados_secao:
+        fig, (ax, ax_vg) = plt.subplots(1, 2, figsize=(13, 6))
+    else:
+        fig, ax = plt.subplots(figsize=(7, 6))
+        ax_vg = None
+
+    # Configuração da Épura
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
     ax.set_xlabel("X (Abcissa)")
     ax.set_ylabel("Projeções (Cota / -Afastamento)")
     ax.set_xlim([-10, 20])
     ax.set_ylim([-10, 20])
     ax.grid(True, linestyle='--', alpha=0.5)
+    ax.set_title("Épura (2D)")
 
-    # Plotar pontos principais
+    # Plotar pontos principais na Épura
     for nome, (x, y, z) in pontos_principais.items():
         if nome.startswith('B') and len(nome) > 1: continue
         ax.scatter(x, z, color='blue', s=40)
@@ -33,14 +41,14 @@ def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=Non
         
         ax.plot([x, x], [-y, z], color='gray', linestyle=':')
 
-    # Plotar Retas e Arestas
+    # Plotar Retas na Épura
     for p1, p2 in retas:
         if p1 in pontos_principais and p2 in pontos_principais:
             c1, c2 = pontos_principais[p1], pontos_principais[p2]
             ax.plot([c1[0], c2[0]], [c1[2], c2[2]], color='blue', linewidth=1.5)
             ax.plot([c1[0], c2[0]], [-c1[1], -c2[1]], color='green', linewidth=1.5)
 
-    # Corpos Redondos
+    # Corpos Redondos na Épura
     if tipo_solido == "Redondo" and dados_circulo:
         ox, oy, oz, raio, altura, forma = dados_circulo
         z_base = oz
@@ -62,17 +70,35 @@ def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=Non
         cy_afastamento = -oy + raio * np.sin(theta)
         ax.plot(cx, cy_afastamento, color='green', linewidth=1.5)
 
-    # Representação de Plano Secante (Seção)
+    # Representação de Plano Secante na Épura
     if dados_secao:
         alpha_o, alpha_1 = dados_secao
-        # Traço vertical do plano secante na épura passando por alpha_o com inclinação alpha_1
         ang_rad = np.radians(alpha_1)
         x_linha = np.linspace(alpha_o - 5, alpha_o + 5, 10)
         z_linha = np.tan(ang_rad) * (x_linha - alpha_o)
-        ax.plot(x_linha, z_linha, color='crimson', linewidth=2, label=f"Plano Secante α (αo={alpha_o}, α1={alpha_1}°)")
+        ax.plot(x_linha, z_linha, color='crimson', linewidth=2, label=f"Plano α")
         ax.legend(loc='upper right')
 
-    ax.set_title("Épura (2D) com Seção")
+        # --- REPRESENTER A VERDADEIRA GRANDEZA (VG) DA SEÇÃO ---
+        ax_vg.axhline(0, color='black', linewidth=1.5, label="Eixo de Referência da Seção")
+        ax_vg.set_xlabel("Abcissa / Largura da Seção")
+        ax_vg.set_ylabel("Distâncias em Verdadeira Grandeza")
+        ax_vg.set_xlim([-10, 10])
+        ax_vg.set_ylim([-10, 10])
+        ax_vg.grid(True, linestyle='--', alpha=0.5)
+        ax_vg.set_title("Verdadeira Grandeza (VG) da Seção Plana")
+
+        # Gerar a elipse ou figura geométrica correspondente à verdadeira grandeza da seção do cilindro/cone cortado
+        t_vg = np.linspace(0, 2*np.pi, 50)
+        # O Semi-eixo maior da elipse de seção depende do ângulo de corte alpha_1
+        fator_inclinacao = 1.0 / max(0.2, abs(np.cos(ang_rad)))
+        vg_x = raio * np.cos(t_vg)
+        vg_y = (raio * fator_inclinacao) * np.sin(t_vg)
+        
+        ax_vg.plot(vg_x, vg_y, color='crimson', linewidth=2.5, label="Contorno da Seção em VG")
+        ax_vg.fill(vg_x, vg_y, color='crimson', alpha=0.2)
+        ax_vg.legend(loc='upper right')
+
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
@@ -119,7 +145,6 @@ def criar_grafico_3d(pontos_principais, retas=[], tipo_solido=None, dados_circul
             for i in [0, 10, 20, 30]:
                 fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='purple', dash='dash')))
 
-    # Plano Secante no 3D
     if dados_secao:
         alpha_o, alpha_1 = dados_secao
         ang_rad = np.radians(alpha_1)
@@ -156,7 +181,7 @@ if menu == "PONTOS":
     if submitted:
         col_3d, col_2d = st.columns(2)
         with col_3d: st.plotly_chart(criar_grafico_3d(pontos), use_container_width=True)
-        with col_2d: st.pyplot(gerar_epura(pontos))
+        with col_2d: st.pyplot(gerar_epura_e_vg(pontos))
 
 # --- MÓDULO DE RETAS ---
 elif menu == "RETAS":
@@ -179,7 +204,7 @@ elif menu == "RETAS":
         pontos = {'A': (ax, ay, az), 'B': (bx, by, bz)}
         col_3d, col_2d = st.columns(2)
         with col_3d: st.plotly_chart(criar_grafico_3d(pontos, retas=[('A', 'B')]), use_container_width=True)
-        with col_2d: st.pyplot(gerar_epura(pontos, retas=[('A', 'B')]))
+        with col_2d: st.pyplot(gerar_epura_e_vg(pontos, retas=[('A', 'B')]))
 
 # --- MÓDULO DE SÓLIDOS & SEÇÕES ---
 elif menu == "SÓLIDOS":
@@ -187,7 +212,7 @@ elif menu == "SÓLIDOS":
     tipo_solido = st.selectbox("Escolha o tipo de sólido:", [
         "Prisma / Pirâmide (Base Regular por A e B)", 
         "Cone / Cilindro (Base Circular por Centro e Raio)", 
-        "Sólido com Eixo Oblíquo e Plano Secante (Seção)"
+        "Sólido com Eixo Oblíquo e Plano Secante (Seção + Verdadeira Grandeza)"
     ])
     
     if tipo_solido == "Prisma / Pirâmide (Base Regular por A e B)":
@@ -250,7 +275,7 @@ elif menu == "SÓLIDOS":
 
             col_3d, col_2d = st.columns(2)
             with col_3d: st.plotly_chart(criar_grafico_3d(pontos, retas=retas_extras), use_container_width=True)
-            with col_2d: st.pyplot(gerar_epura(pontos, retas=retas_extras))
+            with col_2d: st.pyplot(gerar_epura_e_vg(pontos, retas=retas_extras))
 
     elif tipo_solido == "Cone / Cilindro (Base Circular por Centro e Raio)":
         with st.form("form_redondo"):
@@ -270,7 +295,7 @@ elif menu == "SÓLIDOS":
             with col_3d:
                 st.plotly_chart(criar_grafico_3d(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo), use_container_width=True)
             with col_2d:
-                st.pyplot(gerar_epura(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo))
+                st.pyplot(gerar_epura_e_vg(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo))
 
     else:
         st.markdown("### Parâmetros de Seção com Plano Secante ($\alpha$) e Eixo Oblíquo")
@@ -290,7 +315,7 @@ elif menu == "SÓLIDOS":
             with col7: alpha_1 = st.number_input("Ângulo $\\alpha_1$ (Graus com a LT)", value=150.0)
             
             tipo_sol_obl = st.selectbox("Tipo de Sólido Secionado:", ["Cilindro Reto/Oblíquo", "Prisma Hexagonal", "Pirâmide / Cone"])
-            submitted_sec = st.form_submit_button("Gerar Sólido e Seção Plana")
+            submitted_sec = st.form_submit_button("Gerar Sólido, Seção e Verdadeira Grandeza")
 
         if submitted_sec:
             pontos = {'O': (ox, oy, oz)}
@@ -301,4 +326,4 @@ elif menu == "SÓLIDOS":
             with col_3d:
                 st.plotly_chart(criar_grafico_3d(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo, dados_secao=dados_secao), use_container_width=True)
             with col_2d:
-                st.pyplot(gerar_epura(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo, dados_secao=dados_secao))
+                st.pyplot(gerar_epura_e_vg(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo, dados_secao=dados_secao))
