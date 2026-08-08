@@ -12,7 +12,7 @@ st.markdown("---")
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
 st.markdown("---")
 
-# --- FUNÇÃO DE ÉPURA SINCRONIZADA ---
+# --- FUNÇÃO DE ÉPURA COM RAIO E CONTORNOS PRECISOS ---
 def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None):
     fig, ax = plt.subplots(figsize=(7, 6))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
@@ -40,33 +40,41 @@ def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=Non
             ax.plot([c1[0], c2[0]], [c1[2], c2[2]], color='blue', linewidth=1.5)
             ax.plot([c1[0], c2[0]], [-c1[1], -c2[1]], color='green', linewidth=1.5)
 
-    # Sincronizar Corpos Redondos (Cone e Cilindro) com as cotas reais
+    # Corpos Redondos (Cone e Cilindro) com representação rigorosa do Raio na Épura
     if tipo_solido == "Redondo" and dados_circulo:
         ox, oy, oz, raio, altura, forma = dados_circulo
         
-        # Projeção Vertical (Cotas reais alinhadas com o centro O')
         z_base = oz
         z_topo = oz + altura
         x_esq = ox - raio
         x_dir = ox + raio
         
+        # 1. Projeção Vertical (Mostrando a largura do raio a partir do centro x - raio até x + raio)
         if forma == "Cilindro":
-            # Retângulo de projeção vertical do cilindro baseado nas cotas reais
+            # Contornos laterais considerando o raio
             ax.plot([x_esq, x_esq], [z_base, z_topo], color='blue', linewidth=1.5)
             ax.plot([x_dir, x_dir], [z_base, z_topo], color='blue', linewidth=1.5)
+            # Bases superior e inferior na vertical
             ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
             ax.plot([x_esq, x_dir], [z_topo, z_topo], color='blue', linestyle='--', linewidth=1)
+            # Indicação visual do raio na base superior/inferior
+            ax.plot([ox, x_dir], [z_base, z_base], color='purple', linestyle='-', linewidth=2, label='Raio (R)')
         else: # Cone
-            # Triângulo de projeção vertical do cone baseado nas cotas reais
+            # Arestas de contorno do cone considerando o raio
             ax.plot([x_esq, ox, x_dir], [z_base, z_topo, z_base], color='blue', linewidth=1.5)
             ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
+            # Indicação visual do raio na base
+            ax.plot([ox, x_dir], [z_base, z_base], color='purple', linestyle='-', linewidth=2, label='Raio (R)')
 
-        # Projeção Horizontal (Verdadeira grandeza do afastamento abaixo da LT)
+        # 2. Projeção Horizontal (Mostrando a verdadeira grandeza do círculo de raio R abaixo da LT)
         theta = np.linspace(0, 2*np.pi, 50)
         cx = ox + raio * np.cos(theta)
-        ax.plot(cx, -oy + np.zeros_like(theta), color='green', linewidth=1.5)
+        cy_afastamento = -oy + raio * np.sin(theta)
+        ax.plot(cx, cy_afastamento, color='green', linewidth=1.5)
+        # Indicação visual do raio na projeção horizontal
+        ax.plot([ox, ox + raio], [-oy, -oy], color='purple', linestyle='-', linewidth=2)
 
-    ax.set_title("Épura (2D) Sincronizada")
+    ax.set_title("Épura (2D) com Raio Representado")
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
