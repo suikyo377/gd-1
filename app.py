@@ -6,7 +6,7 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D e Épura com VG Rigorosa (Método do Rebatimento)")
+st.markdown("### Geometria Descritiva 3D e Épura com VG Rigorosa (Rebatimento Oposto)")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
@@ -21,17 +21,19 @@ def desenhar_arco_rebatimento(ax, cx, cy, start_x, start_y, end_x):
     t = np.linspace(theta1, theta2, 30)
     ax.plot(cx + r * np.cos(t), cy + r * np.sin(t), color='gray', linestyle='-.', linewidth=1.2)
 
-# --- FUNÇÃO DE ÉPURA INTEGRADA COM REBATIMENTO DE VG ---
+# --- FUNÇÃO DE ÉPURA INTEGRADA COM REBATIMENTO INTELIGENTE ---
 def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_solido=None, dados_secao=None):
     fig, ax = plt.subplots(figsize=(10, 10))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
     ax.set_xlabel("X (Abcissa)")
     ax.set_ylabel("Projeções e Rebatimento (VG)")
-    ax.set_xlim([-5, 25])
+    
+    # Limites estendidos para acomodar rebatimentos para a esquerda ou direita
+    ax.set_xlim([-15, 25])
     ax.set_ylim([-15, 15])
     ax.grid(True, linestyle='--', alpha=0.5)
     
-    # FUNDAMENTAL: Mantém a proporção real para que polígonos e circunferências não fiquem deformados
+    # Mantém a proporção real para que polígonos e circunferências não fiquem deformados
     ax.set_aspect('equal', adjustable='box')
 
     if tipo_solido and dados_solido and dados_secao:
@@ -43,7 +45,7 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_s
         if forma in ["Cilindro", "Cone"]:
             angulos = np.linspace(0, 2*np.pi, 60)
         else:
-            # Polígono regular (adicionado pi/2 para alinhar a base visualmente)
+            # Polígono regular (adicionado giro para alinhar a base visualmente)
             angulos = np.linspace(0, 2*np.pi, lados + 1)[:-1] + (np.pi/2 if lados % 2 != 0 else np.pi/lados)
             
         px_base = ox + raio * np.cos(angulos)
@@ -62,8 +64,8 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_s
             if forma in ["Prisma", "Cilindro"]:
                 t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura if altura != 0 else 0
                 sx, sy = px, py
-                sz = oz + t * altura # Z do corte na geratriz
-            else: # Pirâmide, Cone (Geratrizes inclinadas para o vértice)
+                sz = oz + t * altura
+            else: # Pirâmide, Cone
                 den = altura - np.tan(ang_rad)*(ox - px)
                 t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den if abs(den) > 1e-5 else 0
                 sx = px + t * (ox - px)
@@ -88,48 +90,45 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_s
                 ax.plot([ox-raio, ox, ox+raio], [oz, oz+altura, oz], color='blue')
 
         # 5. Traço do Plano Secante
-        x_linha = np.linspace(alpha_o - 2, alpha_o + 8, 10)
+        x_linha = np.linspace(alpha_o - 5, alpha_o + 10, 10)
         z_linha = np.tan(ang_rad) * (x_linha - alpha_o)
         ax.plot(x_linha, z_linha, color='crimson', linewidth=2, label=f"Plano Secante α")
 
-        # 6. REBATIMENTO RIGOROSO (VG)
-        rx_list, ry_list = [], []
+        # 6. REBATIMENTO INTELIGENTE (FOGE DO SÓLIDO)
+        # Identifica o lado do sólido e força o rebatimento para a direção oposta (-1 para esquerda, 1 para direita)
+        direcao_rebate = -1 if ox >= alpha_o else 1
         
-        # Selecionar pontos estratégicos para desenhar as linhas de construção (evitar poluição visual)
+        rx_list, ry_list = [], []
         pontos_construcao = range(len(sx_list)-1) if forma in ["Prisma", "Pirâmide"] else [0, 15, 30, 45]
         
         for i in range(len(sx_list)):
             sx, sy, sz = sx_list[i], sy_list[i], sz_list[i]
             
-            # Distância do rebatimento: Hipotenusa do ponto até o traço alpha_o
+            # Distância do raio do compasso a partir de alpha_o
             dist_rebatida = np.hypot(sx - alpha_o, sz)
-            # Determina o lado do rebatimento
-            direcao = np.sign(sx - alpha_o) if sx != alpha_o else 1
-            rx = alpha_o + dist_rebatida * direcao
-            ry = -sy # O afastamento se mantém
+            
+            # Aplica a direção inteligente calculada acima
+            rx = alpha_o + dist_rebatida * direcao_rebate
+            ry = -sy 
             
             rx_list.append(rx)
             ry_list.append(ry)
             
-            # Desenhar o caminho do compasso e esquadro apenas para os vértices principais
+            # Desenhar o caminho do compasso e esquadro apenas para vértices de contorno
             if i in pontos_construcao:
-                # Arco do corte até a LT
-                desenhar_arco_rebatimento(ax, alpha_o, 0, sx, sz, rx)
-                # Linha vertical descendo da LT até o afastamento
-                ax.plot([rx, rx], [0, ry], color='gray', linestyle=':', linewidth=1.2)
-                # Linha horizontal puxando o afastamento da base
-                ax.plot([sx, rx], [-sy, ry], color='gray', linestyle=':', linewidth=1.2)
+                desenhar_arco_rebatimento(ax, alpha_o, 0, sx, sz, rx) # Arco descendo até a LT
+                ax.plot([rx, rx], [0, ry], color='gray', linestyle=':', linewidth=1.2) # Chamada vertical
+                ax.plot([sx, rx], [-sy, ry], color='gray', linestyle=':', linewidth=1.2) # Chamada horizontal do afastamento
 
-        # 7. Plotar o Polígono/Elipse Final em Verdadeira Grandeza
+        # 7. Plotar a Verdadeira Grandeza (Polígono ou Elipse Final)
         ax.plot(rx_list, ry_list, color='purple', linewidth=2.5, label="Verdadeira Grandeza (VG)")
         ax.fill(rx_list, ry_list, color='purple', alpha=0.2)
         
-        # Marcar vértices da VG
         if forma in ["Prisma", "Pirâmide"]:
             ax.scatter(rx_list[:-1], ry_list[:-1], color='purple', s=30, zorder=5)
 
         ax.legend(loc='upper right')
-        ax.set_title("Épura com Seção e Rebatimento Geométrico Exato (VG)")
+        ax.set_title("Épura com Seção e Rebatimento Oposto Exato (VG)")
         
     return fig
 
@@ -137,14 +136,14 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_s
 def criar_grafico_3d(tipo_solido=None, dados_solido=None, dados_secao=None):
     fig = go.Figure()
 
-    xx = np.linspace(-5, 15, 5)
-    zz = np.linspace(-5, 15, 5)
+    xx = np.linspace(-10, 15, 5)
+    zz = np.linspace(-10, 15, 5)
     XX, ZZ = np.meshgrid(xx, zz)
     YY = np.zeros_like(XX)
 
     fig.add_trace(go.Surface(x=XX, y=YY, z=ZZ, colorscale=[[0, 'gray'], [1, 'gray']], opacity=0.15, showscale=False))
     fig.add_trace(go.Surface(x=XX, y=ZZ, z=YY, colorscale=[[0, 'gray'], [1, 'gray']], opacity=0.15, showscale=False))
-    fig.add_trace(go.Scatter3d(x=[-5, 20], y=[0, 0], z=[0, 0], mode='lines', line=dict(color='black', width=6), name='Linha de Terra'))
+    fig.add_trace(go.Scatter3d(x=[-10, 20], y=[0, 0], z=[0, 0], mode='lines', line=dict(color='black', width=6), name='Linha de Terra'))
 
     if tipo_solido and dados_solido:
         forma, ox, oy, oz, raio, altura, lados = dados_solido
@@ -164,10 +163,8 @@ def criar_grafico_3d(tipo_solido=None, dados_solido=None, dados_secao=None):
         bz = np.full_like(bx, oz)
         topo_z = np.full_like(bx, oz + altura)
         
-        # Base Inferior
         fig.add_trace(go.Scatter3d(x=bx, y=by, z=bz, mode='lines', line=dict(color='green', width=4), name='Base'))
         
-        # Arestas / Geratrizes
         if forma == "Prisma":
             fig.add_trace(go.Scatter3d(x=bx, y=by, z=topo_z, mode='lines', line=dict(color='blue', width=4), name='Topo'))
             for i in range(len(bx)-1):
@@ -176,25 +173,22 @@ def criar_grafico_3d(tipo_solido=None, dados_solido=None, dados_secao=None):
             fig.add_trace(go.Scatter3d(x=bx, y=by, z=topo_z, mode='lines', line=dict(color='blue', width=4), name='Topo'))
             for i in [0, 10, 20, 30]:
                 fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[oz, oz + altura], mode='lines', line=dict(color='blue', dash='dash')))
-        else: # Pirâmide / Cone
+        else:
             vx, vy, vz = ox, oy, oz + altura
             pontos_tracado = range(len(bx)-1) if forma == "Pirâmide" else [0, 10, 20, 30]
             for i in pontos_tracado:
                 fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='blue', dash='dash')))
 
-    # Plano Secante e Polígono de Corte 3D
     if dados_secao:
         alpha_o, alpha_1 = dados_secao
         ang_rad = np.radians(alpha_1)
         
-        # Desenhar o Plano Transparente
         yy_p = np.linspace(oy - raio - 2, oy + raio + 2, 5)
-        xx_p = np.linspace(alpha_o - 2, alpha_o + 8, 5)
+        xx_p = np.linspace(alpha_o - 5, alpha_o + 10, 5)
         XX_p, YY_p = np.meshgrid(xx_p, yy_p)
         ZZ_p = np.tan(ang_rad) * (XX_p - alpha_o)
         fig.add_trace(go.Surface(x=XX_p, y=YY_p, z=ZZ_p, colorscale=[[0, 'crimson'], [1, 'crimson']], opacity=0.3, showscale=False, name='Plano Secante'))
 
-        # Desenhar a Seção real (Roxa) no espaço 3D
         sx_list, sy_list, sz_list = [], [], []
         for px, py in zip(bx, by):
             if forma in ["Prisma", "Cilindro"]:
@@ -215,7 +209,7 @@ def criar_grafico_3d(tipo_solido=None, dados_solido=None, dados_secao=None):
 
     fig.update_layout(
         title="Espacial 3D (Gire com o mouse)",
-        scene=dict(xaxis_range=[-5, 15], yaxis_range=[-5, 15], zaxis_range=[-5, 15]),
+        scene=dict(xaxis_range=[-10, 15], yaxis_range=[-10, 15], zaxis_range=[-10, 15]),
         margin=dict(l=0, r=0, b=0, t=30),
         height=550
     )
@@ -223,10 +217,9 @@ def criar_grafico_3d(tipo_solido=None, dados_solido=None, dados_secao=None):
 
 # --- MÓDULO PRINCIPAL ---
 if menu == "PONTOS":
-    st.info("Para testar as novidades rigorosas, acesse a aba 'SÓLIDOS' -> 'Seção e Rebatimento'.")
+    st.info("Para visualizar a construção da VG inteligente, acesse a aba 'SÓLIDOS'.")
 elif menu == "RETAS":
-    st.info("Para testar as novidades rigorosas, acesse a aba 'SÓLIDOS' -> 'Seção e Rebatimento'.")
-
+    st.info("Para visualizar a construção da VG inteligente, acesse a aba 'SÓLIDOS'.")
 elif menu == "SÓLIDOS":
     st.subheader("📐 Módulo: Sólidos e Seções com Eixo Oblíquo")
     
