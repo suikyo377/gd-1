@@ -6,13 +6,13 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D (Rotacionável) e Épura Interativa")
+st.markdown("### Geometria Descritiva 3D (Rotacionável) e Épura Sincronizada")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
 st.markdown("---")
 
-# --- FUNÇÃO DE ÉPURA CORRIGIDA ---
+# --- FUNÇÃO DE ÉPURA SINCRONIZADA ---
 def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None):
     fig, ax = plt.subplots(figsize=(7, 6))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
@@ -22,9 +22,9 @@ def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=Non
     ax.set_ylim([-10, 15])
     ax.grid(True, linestyle='--', alpha=0.5)
 
-    # 1. Plotar apenas os pontos principais (evita poluição de dezenas de pontos de círculos)
+    # Plotar pontos principais
     for nome, (x, y, z) in pontos_principais.items():
-        if nome.startswith('B') and len(nome) > 1: continue # Ignora subpontos de círculos na listagem limpa
+        if nome.startswith('B') and len(nome) > 1: continue
         ax.scatter(x, z, color='blue', s=40)
         ax.text(x, z + 0.3, f"{nome}'", fontsize=10, color='blue', fontweight='bold')
         
@@ -33,34 +33,40 @@ def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=Non
         
         ax.plot([x, x], [-y, z], color='gray', linestyle=':')
 
-    # 2. Plotar Retas / Arestas na Épura
+    # Plotar Retas
     for p1, p2 in retas:
         if p1 in pontos_principais and p2 in pontos_principais:
             c1, c2 = pontos_principais[p1], pontos_principais[p2]
             ax.plot([c1[0], c2[0]], [c1[2], c2[2]], color='blue', linewidth=1.5)
             ax.plot([c1[0], c2[0]], [-c1[1], -c2[1]], color='green', linewidth=1.5)
 
-    # 3. Plotar Circunferências de Corpos Redondos na Épura de forma limpa
+    # Sincronizar Corpos Redondos (Cone e Cilindro) com as cotas reais
     if tipo_solido == "Redondo" and dados_circulo:
         ox, oy, oz, raio, altura, forma = dados_circulo
+        
+        # Projeção Vertical (Cotas reais alinhadas com o centro O')
+        z_base = oz
+        z_topo = oz + altura
+        x_esq = ox - raio
+        x_dir = ox + raio
+        
+        if forma == "Cilindro":
+            # Retângulo de projeção vertical do cilindro baseado nas cotas reais
+            ax.plot([x_esq, x_esq], [z_base, z_topo], color='blue', linewidth=1.5)
+            ax.plot([x_dir, x_dir], [z_base, z_topo], color='blue', linewidth=1.5)
+            ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
+            ax.plot([x_esq, x_dir], [z_topo, z_topo], color='blue', linestyle='--', linewidth=1)
+        else: # Cone
+            # Triângulo de projeção vertical do cone baseado nas cotas reais
+            ax.plot([x_esq, ox, x_dir], [z_base, z_topo, z_base], color='blue', linewidth=1.5)
+            ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
+
+        # Projeção Horizontal (Verdadeira grandeza do afastamento abaixo da LT)
         theta = np.linspace(0, 2*np.pi, 50)
         cx = ox + raio * np.cos(theta)
-        
-        # Na épura, a projeção vertical de um cilindro/cone exibe retângulos/triângulos de contorno
-        # E a horizontal exibe os círculos em verdadeira grandeza de afastamento
-        ax.plot(cx, np.full_like(theta, oz), color='blue', linestyle='--', alpha=0.6) # Base superior/inferior V
-        if forma == "Cilindro":
-            ax.plot(cx, np.full_like(theta, oz + altura), color='blue', linestyle='--', alpha=0.6)
-            # Geratrizes de contorno aparente
-            ax.plot([ox - raio, ox - raio], [oz, oz + altura], color='blue', linewidth=1.2)
-            ax.plot([ox + raio, ox + raio], [oz, oz + altura], color='blue', linewidth=1.2)
-        else: # Cone
-            ax.plot([ox - raio, ox, ox + raio], [oz + altura, oz, oz + altura], color='blue', linewidth=1.2)
+        ax.plot(cx, -oy + np.zeros_like(theta), color='green', linewidth=1.5)
 
-        # Projeção Horizontal (Círculos em baixo da LT)
-        ax.plot(cx, -oy + np.zeros_like(theta), color='green', linewidth=1.5, label='Base H')
-
-    ax.set_title("Épura (2D)")
+    ax.set_title("Épura (2D) Sincronizada")
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
