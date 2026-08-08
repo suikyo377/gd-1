@@ -12,7 +12,7 @@ st.markdown("---")
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
 st.markdown("---")
 
-# --- FUNÇÃO DE ÉPURA LIMPA ---
+# --- FUNÇÃO DE ÉPURA ---
 def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None):
     fig, ax = plt.subplots(figsize=(7, 6))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
@@ -33,7 +33,7 @@ def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=Non
         
         ax.plot([x, x], [-y, z], color='gray', linestyle=':')
 
-    # Plotar Retas
+    # Plotar Retas e Arestas
     for p1, p2 in retas:
         if p1 in pontos_principais and p2 in pontos_principais:
             c1, c2 = pontos_principais[p1], pontos_principais[p2]
@@ -192,6 +192,8 @@ elif menu == "SÓLIDOS":
             angulo_atual = np.arctan2(v_y, v_x)
             
             retas_extras = [('A', 'B')]
+            topos_nomes = []
+            
             for i in range(2, lados):
                 angulo_atual += angulo_ext
                 curr_x += lado_tam * np.cos(angulo_atual)
@@ -207,9 +209,15 @@ elif menu == "SÓLIDOS":
                     px, py, pz = pontos[original]
                     t_nome = f"{original}'"
                     pontos[t_nome] = (px, py, pz + altura)
+                    topos_nomes.append(t_nome)
                     retas_extras.append((original, t_nome))
+                
+                # Fechar o ciclo superior do prisma (topo)
+                for i in range(len(topos_nomes)):
+                    p1 = topos_nomes[i]
+                    p2 = topos_nomes[(i + 1) % len(topos_nomes)]
+                    retas_extras.append((p1, p2))
             else:
-                # Cálculo do centro exato (baricentro) da base para o vértice V da pirâmide
                 coords_base = list(pontos.values())
                 vx = sum(c[0] for c in coords_base) / len(coords_base)
                 vy = sum(c[1] for c in coords_base) / len(coords_base)
