@@ -6,23 +6,21 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D e Épura com VG Abaixo da LT")
+st.markdown("### Geometria Descritiva 3D e Épura com Rebatimento de Seção (VG)")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
 st.markdown("---")
 
-# --- FUNÇÃO DE ÉPURA COM VG ABAIXO DA LT E CIRCUNFERÊNCIA PERFEITA ---
+# --- FUNÇÃO DE ÉPURA COM REBATIMENTO GEOMÉTRICO DA VG ---
 def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None, dados_secao=None):
-    fig, ax = plt.subplots(figsize=(9, 9))
+    fig, ax = plt.subplots(figsize=(10, 10))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
     ax.set_xlabel("X (Abcissa)")
     ax.set_ylabel("Projeções e Rebatimento (VG)")
     ax.set_xlim([-10, 25])
     ax.set_ylim([-15, 15])
     ax.grid(True, linestyle='--', alpha=0.5)
-    
-    # Forçar proporção geométrica real para o círculo não ficar oval
     ax.set_aspect('equal', adjustable='box')
 
     # Plotar pontos principais na Épura
@@ -65,37 +63,45 @@ def gerar_epura_integrada(pontos_principais, retas=[], tipo_solido=None, dados_c
         theta = np.linspace(0, 2*np.pi, 100)
         cx = ox + raio * np.cos(theta)
         cy_afastamento = -oy + raio * np.sin(theta)
-        ax.plot(cx, cy_afastamento, color='green', linewidth=1.5, label="Projeção Horizontal (Círculo)")
+        ax.plot(cx, cy_afastamento, color='green', linewidth=1.5, label="Base (Projeção Horizontal)")
 
-    # Plano Secante e Verdadeira Grandeza posicionada ABAIXO DA LT
+    # Plano Secante e Verdadeira Grandeza (Rebatimento em Elipse)
     if dados_secao:
         alpha_o, alpha_1 = dados_secao
         ang_rad = np.radians(alpha_1)
         
-        # Traço do plano na vertical
+        # Traço do plano na projeção vertical
         x_linha = np.linspace(alpha_o - 4, alpha_o + 4, 10)
         z_linha = np.tan(ang_rad) * (x_linha - alpha_o)
         ax.plot(x_linha, z_linha, color='crimson', linewidth=2, label=f"Plano Secante α")
 
-        # --- VERDADEIRA GRANDEZA (VG) ABAIXO DA LT ---
-        # Posicionada na parte inferior da épura (ex: Z negativo, simulando o rebatimento idêntico à prancha)
-        vg_centro_x = alpha_o + 4
-        vg_centro_z = -7.0  # Abaixo da Linha de Terra
+        # --- REBATIMENTO DA VERDADEIRA GRANDEZA (ELIPSE DE SEÇÃO) ---
+        # O eixo maior da elipse de seção depende do ângulo alpha_1 do plano secante
+        centro_vg_x = alpha_o + 2.0
+        centro_vg_z = -6.0  # Abaixo da LT
         
         t_vg = np.linspace(0, 2*np.pi, 100)
-        vg_x = vg_centro_x + (raio * np.cos(t_vg))
-        vg_z = vg_centro_z + (raio * np.sin(t_vg)) # Círculo perfeito em verdadeira grandeza
+        semi_eixo_menor = raio
+        fator_elipse = 1.0 / max(0.2, abs(np.sin(ang_rad)))
+        semi_eixo_maior = raio * fator_inclinacao if 'fator_inclinacao' in locals() else raio * fator_elipse
         
-        ax.plot(vg_x, vg_z, color='purple', linewidth=2.5, label="Verdadeira Grandeza (VG)")
+        # Coordenadas da elipse rebatida de Verdadeira Grandeza
+        vg_x = centro_vg_x + (semi_eixo_menor * np.cos(t_vg))
+        vg_z = centro_vg_z + (semi_eixo_maior * np.sin(t_vg))
+        
+        ax.plot(vg_x, vg_z, color='purple', linewidth=2.5, label="Verdadeira Grandeza (Rebatimento)")
         ax.fill(vg_x, vg_z, color='purple', alpha=0.15)
         
-        # Linhas de rebatimento auxiliares
-        ax.plot([alpha_o, vg_centro_x], [0, vg_centro_z], color='gray', linestyle='-.', alpha=0.7)
-        ax.text(vg_centro_x - 1.5, vg_centro_z + raio + 0.8, "VG da Seção", fontsize=10, color='purple', fontweight='bold')
+        # Arcos e linhas de rebatimento simulando o transporte de pontos com compasso
+        theta_arco = np.linspace(0, np.pi/2, 30)
+        arco_x = centro_vg_x + 3 * np.cos(theta_arco)
+        arco_z = centro_vg_z + 3 * np.sin(theta_arco)
+        ax.plot(arco_x, arco_z, color='gray', linestyle='-.', linewidth=1.2)
+        ax.text(centro_vg_x - 0.8, centro_vg_z + semi_eixo_maior + 0.6, "VG da Seção", fontsize=10, color='purple', fontweight='bold')
 
         ax.legend(loc='upper right')
 
-    ax.set_title("Épura com Circunferência Perfeita e VG Abaixo da LT")
+    ax.set_title("Épura com Rebatimento Geométrico da Seção (VG)")
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
@@ -209,7 +215,7 @@ elif menu == "SÓLIDOS":
     tipo_solido = st.selectbox("Escolha o tipo de sólido:", [
         "Prisma / Pirâmide (Base Regular por A e B)", 
         "Cone / Cilindro (Base Circular por Centro e Raio)", 
-        "Sólido com Eixo Oblíquo e Plano Secante (Seção + VG Abaixo da LT)"
+        "Sólido com Eixo Oblíquo e Plano Secante (Seção + Rebatimento VG)"
     ])
     
     if tipo_solido == "Prisma / Pirâmide (Base Regular por A e B)":
@@ -312,7 +318,7 @@ elif menu == "SÓLIDOS":
             with col7: alpha_1 = st.number_input("Ângulo $\\alpha_1$ (Graus com a LT)", value=150.0)
             
             tipo_sol_obl = st.selectbox("Tipo de Sólido Secionado:", ["Cilindro Reto/Oblíquo", "Prisma Hexagonal", "Pirâmide / Cone"])
-            submitted_sec = st.form_submit_button("Gerar Sólido e VG Abaixo da LT")
+            submitted_sec = st.form_submit_button("Gerar Sólido e Rebatimento de VG")
 
         if submitted_sec:
             pontos = {'O': (ox, oy, oz)}
