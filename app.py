@@ -123,30 +123,32 @@ def gerar_epura_integrada(pontos_principais=None, retas=None, tipo_solido=None, 
             sy_list.append(sy)
             sz_list.append(sz)
 
-        # Arestas / Contornos verticais
+        # Arestas / Contornos verticais (Bases arrumadas)
         if forma in ["Prisma", "Pirâmide"]:
             for px, sz_corte in zip(px_base[:-1], sz_list[:-1]):
                 if forma == "Prisma":
                     ax.plot([px, px], [oz, oz + altura], color='blue', linewidth=1.0, alpha=0.5)
                 else:
                     ax.plot([px, ox], [oz, oz + altura], color='blue', linewidth=1.0, alpha=0.5)
+            # Linhas de base
+            ax.plot([min(px_base), max(px_base)], [oz, oz], color='blue', linestyle='--', alpha=0.7)
+            if forma == "Prisma":
+                ax.plot([min(px_base), max(px_base)], [oz + altura, oz + altura], color='blue', linestyle='--', alpha=0.7)
         else: 
             if forma == "Cilindro":
                 ax.plot([ox-raio, ox-raio], [oz, oz+altura], color='blue')
                 ax.plot([ox+raio, ox+raio], [oz, oz+altura], color='blue')
-            else:
-                ax.plot([ox-raio, ox-raio], [oz, oz], color='blue')
-                ax.plot([ox+raio, ox+raio], [oz, oz], color='blue')
+                ax.plot([ox-raio, ox+raio], [oz, oz], color='blue', linestyle='--')
+                ax.plot([ox-raio, ox+raio], [oz+altura, oz+altura], color='blue', linestyle='--')
             if forma == "Cone": 
                 ax.plot([ox-raio, ox, ox+raio], [oz, oz+altura, oz], color='blue')
+                ax.plot([ox-raio, ox+raio], [oz, oz], color='blue', linestyle='--')
 
         # Traço do Plano Secante
         x_linha = np.linspace(alpha_o - 5, alpha_o + 10, 10)
         ax.plot(x_linha, np.tan(ang_rad) * (x_linha - alpha_o), color='crimson', linewidth=2, label=f"Plano Secante α")
 
         # --- REGRA DE OURO DO REBATIMENTO: FUGIR DO CORTE ---
-        # Se o sólido está na direita (ox >= alpha_o), rebate pra ESQUERDA (-1)
-        # Se o sólido está na esquerda (ox < alpha_o), rebate pra DIREITA (+1)
         direcao_rebate = -1 if ox >= alpha_o else 1
             
         rx_list, ry_list = [], []
@@ -155,8 +157,9 @@ def gerar_epura_integrada(pontos_principais=None, retas=None, tipo_solido=None, 
         for i in range(len(sx_list)):
             sx, sy, sz = sx_list[i], sy_list[i], sz_list[i]
             
-            # Rebatimento exato com o raio do compasso
-            dist_rebatida = np.hypot(sx - alpha_o, sz)
+            # Rebatimento exato com o raio do compasso (Corrigido o bug da "elipse dobrada")
+            sinal = np.sign(sx - alpha_o) if sx != alpha_o else 1
+            dist_rebatida = sinal * np.hypot(sx - alpha_o, sz)
             rx = alpha_o + (dist_rebatida * direcao_rebate)
             ry = -sy 
             
@@ -168,7 +171,7 @@ def gerar_epura_integrada(pontos_principais=None, retas=None, tipo_solido=None, 
                 ax.plot([rx, rx], [0, ry], color='gray', linestyle=':', linewidth=1.2) 
                 ax.plot([sx, rx], [-sy, ry], color='gray', linestyle=':', linewidth=1.2) 
 
-        # Plotar a VG Final (Elipse ou Polígono)
+        # Plotar a VG Final (Elipse ou Polígono Perfeito)
         ax.plot(rx_list, ry_list, color='purple', linewidth=2.5, label="Verdadeira Grandeza (VG)")
         ax.fill(rx_list, ry_list, color='purple', alpha=0.2)
         
