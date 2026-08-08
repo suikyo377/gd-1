@@ -6,7 +6,7 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D (Rotacionável) e Épura Limpa")
+st.markdown("### Geometria Descritiva 3D (Rotacionável) e Épura Sincronizada")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
@@ -40,26 +40,23 @@ def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=Non
             ax.plot([c1[0], c2[0]], [c1[2], c2[2]], color='blue', linewidth=1.5)
             ax.plot([c1[0], c2[0]], [-c1[1], -c2[1]], color='green', linewidth=1.5)
 
-    # Corpos Redondos (Cone e Cilindro) limpos (sem a linha roxa do raio)
+    # Corpos Redondos
     if tipo_solido == "Redondo" and dados_circulo:
         ox, oy, oz, raio, altura, forma = dados_circulo
-        
         z_base = oz
         z_topo = oz + altura
         x_esq = ox - raio
         x_dir = ox + raio
         
-        # 1. Projeção Vertical
         if forma == "Cilindro":
             ax.plot([x_esq, x_esq], [z_base, z_topo], color='blue', linewidth=1.5)
             ax.plot([x_dir, x_dir], [z_base, z_topo], color='blue', linewidth=1.5)
             ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
             ax.plot([x_esq, x_dir], [z_topo, z_topo], color='blue', linestyle='--', linewidth=1)
-        else: # Cone
+        else:
             ax.plot([x_esq, ox, x_dir], [z_base, z_topo, z_base], color='blue', linewidth=1.5)
             ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
 
-        # 2. Projeção Horizontal (Círculo em verdadeira grandeza)
         theta = np.linspace(0, 2*np.pi, 50)
         cx = ox + raio * np.cos(theta)
         cy_afastamento = -oy + raio * np.sin(theta)
@@ -212,7 +209,12 @@ elif menu == "SÓLIDOS":
                     pontos[t_nome] = (px, py, pz + altura)
                     retas_extras.append((original, t_nome))
             else:
-                vx, vy, vz = (ax + bx)/2, (ay + by)/2, az + altura
+                # Cálculo do centro exato (baricentro) da base para o vértice V da pirâmide
+                coords_base = list(pontos.values())
+                vx = sum(c[0] for c in coords_base) / len(coords_base)
+                vy = sum(c[1] for c in coords_base) / len(coords_base)
+                vz = (sum(c[2] for c in coords_base) / len(coords_base)) + altura
+                
                 pontos['V'] = (vx, vy, vz)
                 for original in base_nomes:
                     retas_extras.append((original, 'V'))
