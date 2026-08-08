@@ -7,7 +7,7 @@ st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
 st.markdown("### Geometria Descritiva 3D e Épura (VG com Rebatimento Oposto ao Plano)")
-st.markdown("Autor Gabriel Santos")
+st.markdown("Autor Gabriel Santos e Ivoneide Costa")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
 st.markdown("---")
