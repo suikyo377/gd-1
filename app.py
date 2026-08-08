@@ -6,7 +6,7 @@ import numpy as np
 st.set_page_config(page_title="GD EM MÃOS - UEFS", layout="wide")
 
 st.title("🚀 GD EM MÃOS - UEFS")
-st.markdown("### Geometria Descritiva 3D e Épura Completa (Pontos, Retas, Sólidos e Seções)")
+st.markdown("### Geometria Descritiva 3D e Épura com VG Rigorosa (Rebatimento Oposto)")
 st.markdown("---")
 
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
@@ -17,12 +17,13 @@ def obter_geometria_base(forma, ox, oy, oz, raio, lados):
     if forma in ["Cilindro", "Cone"]:
         angulos = np.linspace(0, 2 * np.pi, 60)
     else:
+        # Orientação geométrica clássica ditada pelo desenho técnico
         if lados == 3: 
             giro = -np.pi / 2  
         elif lados == 4: 
             giro = np.pi / 4   
         elif lados == 5: 
-            giro = -np.pi / 2  
+            giro = -np.pi / 2  # Pentágono com o vértice para cima na Épura
         elif lados == 6: 
             giro = 0           
         elif lados == 8: 
@@ -42,13 +43,20 @@ def obter_geometria_base(forma, ox, oy, oz, raio, lados):
     return bx, by
 
 def desenhar_arco_rebatimento(ax, cx, cy, start_x, start_y, end_x):
+    """Desenha o traço curvo do compasso simulando o rebatimento no papel"""
     r = np.hypot(start_x - cx, start_y - cy)
     theta1 = np.arctan2(start_y - cy, start_x - cx)
-    theta2 = 0.0 if end_x > cx else np.pi
-    t = np.linspace(theta1, theta2, 30)
+    
+    if end_x > cx:
+        theta2 = 0.0
+        t = np.linspace(theta1, theta2, 30)
+    else:
+        theta2 = np.pi
+        t = np.linspace(theta1, theta2, 30)
+        
     ax.plot(cx + r * np.cos(t), cy + r * np.sin(t), color='gray', linestyle='-.', linewidth=1.2)
 
-# --- FUNÇÃO DE ÉPURA INTEGRADA PARA TODOS OS MÓDULOS ---
+# --- FUNÇÃO DE ÉPURA INTEGRADA ---
 def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dados_circulo=None, dados_solido=None, dados_secao=None):
     fig, ax = plt.subplots(figsize=(10, 10))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
@@ -57,6 +65,8 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
     ax.set_xlim([-15, 25])
     ax.set_ylim([-15, 15])
     ax.grid(True, linestyle='--', alpha=0.5)
+    
+    # Proporção geométrica real travada (evita deformações na VG e na Base)
     ax.set_aspect('equal', adjustable='box')
 
     # 1. PONTOS E RETAS BÁSICAS
@@ -75,7 +85,7 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
             ax.plot([c1[0], c2[0]], [c1[2], c2[2]], color='blue', linewidth=1.5)
             ax.plot([c1[0], c2[0]], [-c1[1], -c2[1]], color='green', linewidth=1.5)
 
-    # 2. SÓLIDOS REDONDOS SIMPLES (SÓLIDOS BÁSICOS)
+    # 2. SÓLIDOS REDONDOS SIMPLES
     if tipo_solido == "Redondo" and dados_circulo:
         ox, oy, oz, raio, altura, forma = dados_circulo
         z_base, z_topo = oz, oz + altura
@@ -90,7 +100,7 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
             ax.plot([x_esq, ox, x_dir], [z_base, z_topo, z_base], color='blue', linewidth=1.5)
             ax.plot([x_esq, x_dir], [z_base, z_base], color='blue', linestyle='--', linewidth=1)
 
-        theta = np.linspace(0, 2*np.pi, 100)
+        theta = np.linspace(0, 2 * np.pi, 100)
         ax.plot(ox + raio * np.cos(theta), -oy + raio * np.sin(theta), color='green', linewidth=1.5)
 
     # 3. SÓLIDOS COM SEÇÃO E REBATIMENTO (VG RIGOROSA)
@@ -105,21 +115,28 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
         sx_list, sy_list, sz_list = [], [], []
         for px, py in zip(px_base, py_base):
             if forma in ["Prisma", "Cilindro"]:
-                t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura if altura != 0 else 0
+                if altura != 0:
+                    t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura 
+                else:
+                    t = 0
                 sx = px
                 sy = py
                 sz = oz + t * altura
             else:
                 den = altura - np.tan(ang_rad)*(ox - px)
-                t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den if abs(den) > 1e-5 else 0
+                if abs(den) > 1e-5:
+                    t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den 
+                else:
+                    t = 0
                 sx = px + t * (ox - px)
                 sy = py + t * (oy - py)
                 sz = oz + t * altura
+                
             sx_list.append(sx)
             sy_list.append(sy)
             sz_list.append(sz)
 
-        # Plotar as geratrizes/arestas verticais e inclinadas
+        # Arestas / Contornos
         if forma in ["Prisma", "Pirâmide"]:
             for px, sz_corte in zip(px_base[:-1], sz_list[:-1]):
                 if forma == "Prisma":
@@ -137,14 +154,15 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
             if forma == "Cone": 
                 ax.plot([ox-raio, ox, ox+raio], [oz, oz+altura, oz], color='blue')
 
+        # Traço do Plano Secante
         x_linha = np.linspace(alpha_o - 5, alpha_o + 10, 10)
         ax.plot(x_linha, np.tan(ang_rad) * (x_linha - alpha_o), color='crimson', linewidth=2, label=f"Plano Secante α")
 
-        # Rebatimento oposto inteligente
-        if np.cos(ang_rad) < 0:
-            direcao_rebate = 1
+        # --- A REGRA DE OURO DO REBATIMENTO: FOGE DO CORTE ---
+        if ox > alpha_o:
+            direcao_rebate = -1  # Se o corte está na direita, a VG vai para a ESQUERDA
         else:
-            direcao_rebate = -1
+            direcao_rebate = 1   # Se o corte está na esquerda, a VG vai para a DIREITA
             
         rx_list, ry_list = [], []
         
@@ -158,7 +176,9 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
             sy = sy_list[i]
             sz = sz_list[i]
             
-            rx = alpha_o + np.hypot(sx - alpha_o, sz) * direcao_rebate
+            # Rebatimento exato de cada ponto interceptado
+            dist_rebatida = np.hypot(sx - alpha_o, sz)
+            rx = alpha_o + (dist_rebatida * direcao_rebate)
             ry = -sy 
             
             rx_list.append(rx)
@@ -169,6 +189,7 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
                 ax.plot([rx, rx], [0, ry], color='gray', linestyle=':', linewidth=1.2) 
                 ax.plot([sx, rx], [-sy, ry], color='gray', linestyle=':', linewidth=1.2) 
 
+        # Plotar a VG Final
         ax.plot(rx_list, ry_list, color='purple', linewidth=2.5, label="Verdadeira Grandeza (VG)")
         ax.fill(rx_list, ry_list, color='purple', alpha=0.2)
         
@@ -177,7 +198,7 @@ def gerar_epura_integrada(pontos_principais={}, retas=[], tipo_solido=None, dado
             
         ax.legend(loc='upper right')
 
-    ax.set_title("Épura (GD EM MÃOS)")
+    ax.set_title("Épura com Seção e VG (Rebatimento Exato e Oposto ao Plano)")
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
@@ -262,18 +283,25 @@ def criar_grafico_3d(pontos_principais={}, retas=[], tipo_solido=None, dados_cir
             yy_p = np.linspace(oy - raio - 2, oy + raio + 2, 5)
             xx_p = np.linspace(alpha_o - 5, alpha_o + 10, 5)
             XX_p, YY_p = np.meshgrid(xx_p, yy_p)
+            
             fig.add_trace(go.Surface(x=XX_p, y=YY_p, z=np.tan(ang_rad) * (XX_p - alpha_o), colorscale=[[0, 'crimson'], [1, 'crimson']], opacity=0.3, showscale=False, name='Plano Secante'))
 
             sx_list, sy_list, sz_list = [], [], []
             for px, py in zip(bx, by):
                 if forma in ["Prisma", "Cilindro"]:
-                    t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura if altura != 0 else 0
+                    if altura != 0:
+                        t = (np.tan(ang_rad) * (px - alpha_o) - oz) / altura 
+                    else:
+                        t = 0
                     sx = px
                     sy = py
                     sz = oz + t * altura
                 else:
                     den = altura - np.tan(ang_rad)*(ox - px)
-                    t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den if abs(den) > 1e-5 else 0
+                    if abs(den) > 1e-5:
+                        t = (np.tan(ang_rad)*(px - alpha_o) - oz) / den 
+                    else:
+                        t = 0
                     sx = px + t * (ox - px)
                     sy = py + t * (oy - py)
                     sz = oz + t * altura
@@ -333,9 +361,9 @@ elif menu == "RETAS":
 elif menu == "SÓLIDOS":
     st.subheader("📐 Módulo: Sólidos e Seções Geométricas")
     tipo_modulo = st.selectbox("Escolha o método do Sólido:", [
+        "Sólido com Plano Secante e Rebatimento (VG Rigorosa)",
         "Prisma / Pirâmide (Polígono manual por Pontos A e B)", 
-        "Cone / Cilindro Simples (Base Circular por Centro)", 
-        "Sólido com Plano Secante e Rebatimento (VG Rigorosa)"
+        "Cone / Cilindro Simples (Base Circular por Centro)"
     ])
     
     if tipo_modulo == "Prisma / Pirâmide (Polígono manual por Pontos A e B)":
@@ -386,9 +414,7 @@ elif menu == "SÓLIDOS":
                     retas_extras.append((topos_nomes[i], topos_nomes[(i + 1) % len(topos_nomes)]))
             else:
                 coords_base = list(pontos.values())
-                vx = sum(c[0] for c in coords_base)/len(coords_base)
-                vy = sum(c[1] for c in coords_base)/len(coords_base)
-                vz = az + altura
+                vx, vy, vz = sum(c[0] for c in coords_base)/len(coords_base), sum(c[1] for c in coords_base)/len(coords_base), az + altura
                 pontos['V'] = (vx, vy, vz)
                 for original in base_nomes: 
                     retas_extras.append((original, 'V'))
