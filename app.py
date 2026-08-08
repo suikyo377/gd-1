@@ -12,8 +12,8 @@ st.markdown("---")
 menu = st.radio("Escolha o Assunto que deseja estudar:", ["PONTOS", "RETAS", "SÓLIDOS"], horizontal=True)
 st.markdown("---")
 
-# --- FUNÇÃO DE ÉPURA (MATPLOTLIB) ---
-def gerar_epura(pontos, retas=[], solidos_base=[]):
+# --- FUNÇÃO DE ÉPURA CORRIGIDA ---
+def gerar_epura(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None):
     fig, ax = plt.subplots(figsize=(7, 6))
     ax.axhline(0, color='black', linewidth=1.5, label="Linha de Terra (LT)")
     ax.set_xlabel("X (Abcissa)")
@@ -22,32 +22,49 @@ def gerar_epura(pontos, retas=[], solidos_base=[]):
     ax.set_ylim([-10, 15])
     ax.grid(True, linestyle='--', alpha=0.5)
 
-    # Plotar pontos na épura
-    for nome, (x, y, z) in pontos.items():
-        # Projeção Vertical P' (Cota acima da LT)
+    # 1. Plotar apenas os pontos principais (evita poluição de dezenas de pontos de círculos)
+    for nome, (x, y, z) in pontos_principais.items():
+        if nome.startswith('B') and len(nome) > 1: continue # Ignora subpontos de círculos na listagem limpa
         ax.scatter(x, z, color='blue', s=40)
         ax.text(x, z + 0.3, f"{nome}'", fontsize=10, color='blue', fontweight='bold')
         
-        # Projeção Horizontal P'' (Afastamento invertido abaixo da LT)
         ax.scatter(x, -y, color='green', s=40)
         ax.text(x, -y - 0.5, f"{nome}''", fontsize=10, color='green', fontweight='bold')
         
-        # Linha de chamada unindo P' e P''
         ax.plot([x, x], [-y, z], color='gray', linestyle=':')
 
-    # Plotar Retas na Épura
+    # 2. Plotar Retas / Arestas na Épura
     for p1, p2 in retas:
-        c1, c2 = pontos[p1], pontos[p2]
-        # Projeção vertical
-        ax.plot([c1[0], c2[0]], [c1[2], c2[2]], color='blue', linewidth=1.5)
-        # Projeção horizontal
-        ax.plot([c1[0], c2[0]], [-c1[1], -c2[1]], color='green', linewidth=1.5)
+        if p1 in pontos_principais and p2 in pontos_principais:
+            c1, c2 = pontos_principais[p1], pontos_principais[p2]
+            ax.plot([c1[0], c2[0]], [c1[2], c2[2]], color='blue', linewidth=1.5)
+            ax.plot([c1[0], c2[0]], [-c1[1], -c2[1]], color='green', linewidth=1.5)
+
+    # 3. Plotar Circunferências de Corpos Redondos na Épura de forma limpa
+    if tipo_solido == "Redondo" and dados_circulo:
+        ox, oy, oz, raio, altura, forma = dados_circulo
+        theta = np.linspace(0, 2*np.pi, 50)
+        cx = ox + raio * np.cos(theta)
+        
+        # Na épura, a projeção vertical de um cilindro/cone exibe retângulos/triângulos de contorno
+        # E a horizontal exibe os círculos em verdadeira grandeza de afastamento
+        ax.plot(cx, np.full_like(theta, oz), color='blue', linestyle='--', alpha=0.6) # Base superior/inferior V
+        if forma == "Cilindro":
+            ax.plot(cx, np.full_like(theta, oz + altura), color='blue', linestyle='--', alpha=0.6)
+            # Geratrizes de contorno aparente
+            ax.plot([ox - raio, ox - raio], [oz, oz + altura], color='blue', linewidth=1.2)
+            ax.plot([ox + raio, ox + raio], [oz, oz + altura], color='blue', linewidth=1.2)
+        else: # Cone
+            ax.plot([ox - raio, ox, ox + raio], [oz + altura, oz, oz + altura], color='blue', linewidth=1.2)
+
+        # Projeção Horizontal (Círculos em baixo da LT)
+        ax.plot(cx, -oy + np.zeros_like(theta), color='green', linewidth=1.5, label='Base H')
 
     ax.set_title("Épura (2D)")
     return fig
 
 # --- FUNÇÃO DE 3D INTERATIVO (PLOTLY) ---
-def criar_grafico_3d(pontos, retas=[]):
+def criar_grafico_3d(pontos_principais, retas=[], tipo_solido=None, dados_circulo=None):
     fig = go.Figure()
 
     xx = np.linspace(-10, 10, 5)
@@ -59,7 +76,8 @@ def criar_grafico_3d(pontos, retas=[]):
     fig.add_trace(go.Surface(x=XX, y=ZZ, z=YY, colorscale=[[0, 'gray'], [1, 'gray']], opacity=0.15, showscale=False))
     fig.add_trace(go.Scatter3d(x=[-10, 10], y=[0, 0], z=[0, 0], mode='lines', line=dict(color='black', width=6), name='Linha de Terra'))
 
-    for nome, (x, y, z) in pontos.items():
+    for nome, (x, y, z) in pontos_principais.items():
+        if nome.startswith('B') and len(nome) > 1: continue
         fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[z], mode='text+markers', marker=dict(size=5, color='black'), text=[f"({nome})"], textposition="top center"))
         fig.add_trace(go.Scatter3d(x=[x], y=[0], z=[z], mode='markers', marker=dict(size=4, color='blue'), showlegend=False))
         fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode='markers', marker=dict(size=4, color='green'), showlegend=False))
@@ -67,8 +85,27 @@ def criar_grafico_3d(pontos, retas=[]):
         fig.add_trace(go.Scatter3d(x=[x, x], y=[0, y], z=[z, z], mode='lines', line=dict(color='gray', dash='dash', width=2), showlegend=False))
 
     for p1, p2 in retas:
-        c1, c2 = pontos[p1], pontos[p2]
-        fig.add_trace(go.Scatter3d(x=[c1[0], c2[0]], y=[c1[1], c2[1]], z=[c1[2], c2[2]], mode='lines', line=dict(color='purple', width=5)))
+        if p1 in pontos_principais and p2 in pontos_principais:
+            c1, c2 = pontos_principais[p1], pontos_principais[p2]
+            fig.add_trace(go.Scatter3d(x=[c1[0], c2[0]], y=[c1[1], c2[1]], z=[c1[2], c2[2]], mode='lines', line=dict(color='purple', width=5)))
+
+    if tipo_solido == "Redondo" and dados_circulo:
+        ox, oy, oz, raio, altura, forma = dados_circulo
+        theta = np.linspace(0, 2*np.pi, 40)
+        bx = ox + raio * np.cos(theta)
+        by = oy + raio * np.sin(theta)
+        bz = np.full_like(theta, oz)
+        topo_z = np.full_like(theta, oz + altura)
+        
+        fig.add_trace(go.Scatter3d(x=bx, y=by, z=bz, mode='lines', line=dict(color='purple', width=4), name='Base'))
+        if forma == "Cilindro":
+            fig.add_trace(go.Scatter3d(x=bx, y=by, z=topo_z, mode='lines', line=dict(color='purple', width=4), name='Topo'))
+            for i in [0, 10, 20, 30]:
+                fig.add_trace(go.Scatter3d(x=[bx[i], bx[i]], y=[by[i], by[i]], z=[bz[i], topo_z[i]], mode='lines', line=dict(color='purple', dash='dash')))
+        else:
+            vx, vy, vz = ox, oy, oz + altura
+            for i in [0, 10, 20, 30]:
+                fig.add_trace(go.Scatter3d(x=[bx[i], vx], y=[by[i], vy], z=[bz[i], vz], mode='lines', line=dict(color='purple', dash='dash')))
 
     fig.update_layout(
         title="Espacial 3D (Gire com o mouse)",
@@ -96,10 +133,8 @@ if menu == "PONTOS":
         
     if submitted:
         col_3d, col_2d = st.columns(2)
-        with col_3d:
-            st.plotly_chart(criar_grafico_3d(pontos), use_container_width=True)
-        with col_2d:
-            st.pyplot(gerar_epura(pontos))
+        with col_3d: st.plotly_chart(criar_grafico_3d(pontos), use_container_width=True)
+        with col_2d: st.pyplot(gerar_epura(pontos))
 
 # --- MÓDULO DE RETAS ---
 elif menu == "RETAS":
@@ -121,10 +156,8 @@ elif menu == "RETAS":
     if submitted_reta:
         pontos = {'A': (ax, ay, az), 'B': (bx, by, bz)}
         col_3d, col_2d = st.columns(2)
-        with col_3d:
-            st.plotly_chart(criar_grafico_3d(pontos, retas=[('A', 'B')]), use_container_width=True)
-        with col_2d:
-            st.pyplot(gerar_epura(pontos, retas=[('A', 'B')]))
+        with col_3d: st.plotly_chart(criar_grafico_3d(pontos, retas=[('A', 'B')]), use_container_width=True)
+        with col_2d: st.pyplot(gerar_epura(pontos, retas=[('A', 'B')]))
 
 # --- MÓDULO DE SÓLIDOS ---
 elif menu == "SÓLIDOS":
@@ -172,15 +205,16 @@ elif menu == "SÓLIDOS":
                     px, py, pz = pontos[original]
                     t_nome = f"{original}'"
                     pontos[t_nome] = (px, py, pz + altura)
+                    retas_extras.append((original, t_nome))
             else:
                 vx, vy, vz = (ax + bx)/2, (ay + by)/2, az + altura
                 pontos['V'] = (vx, vy, vz)
+                for original in base_nomes:
+                    retas_extras.append((original, 'V'))
 
             col_3d, col_2d = st.columns(2)
-            with col_3d:
-                st.plotly_chart(criar_grafico_3d(pontos, retas=retas_extras), use_container_width=True)
-            with col_2d:
-                st.pyplot(gerar_epura(pontos, retas=retas_extras))
+            with col_3d: st.plotly_chart(criar_grafico_3d(pontos, retas=retas_extras), use_container_width=True)
+            with col_2d: st.pyplot(gerar_epura(pontos, retas=retas_extras))
 
     else:
         with st.form("form_redondo"):
@@ -195,24 +229,9 @@ elif menu == "SÓLIDOS":
 
         if submitted_red:
             pontos = {'O': (ox, oy, oz)}
-            theta = np.linspace(0, 2*np.pi, 20)
-            base_x = ox + raio * np.cos(theta)
-            base_y = oy + raio * np.sin(theta)
-            
-            # Adicionar pontos amostrais da base no dicionário para a épura
-            for i, (bx, by) in enumerate(zip(base_x, base_y)):
-                pontos[f'B{i}'] = (bx, by, oz)
-
+            dados_circulo = (ox, oy, oz, raio, altura, tipo_red)
             col_3d, col_2d = st.columns(2)
             with col_3d:
-                fig_3d = criar_grafico_3d(pontos)
-                # Adicionar superfícies circulares no Plotly para cone/cilindro
-                topo_z = np.full_like(theta, oz + altura)
-                fig_3d.add_trace(go.Scatter3d(x=base_x, y=base_y, z=np.full_like(theta, oz), mode='lines', line=dict(color='purple', width=4), name='Base'))
-                if tipo_red == "Cilindro":
-                    fig_3d.add_trace(go.Scatter3d(x=base_x, y=base_y, z=topo_z, mode='lines', line=dict(color='purple', width=4), name='Topo'))
-                else:
-                    fig_3d.add_trace(go.Scatter3d(x=[ox], y=[oy], z=[oz+altura], mode='text+markers', text=['(V)']))
-                st.plotly_chart(fig_3d, use_container_width=True)
+                st.plotly_chart(criar_grafico_3d(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo), use_container_width=True)
             with col_2d:
-                st.pyplot(gerar_epura(pontos))
+                st.pyplot(gerar_epura(pontos, tipo_solido="Redondo", dados_circulo=dados_circulo))
